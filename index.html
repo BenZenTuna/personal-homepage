@@ -172,9 +172,12 @@
   .half.L .portrait-glow { background: radial-gradient(circle, rgba(168, 195, 255, 0.55), transparent 60%); }
   .half.R .portrait-glow { background: radial-gradient(circle, rgba(255, 196, 154, 0.55), transparent 60%); }
 
-  .half:hover .portrait-glow { opacity: 1; }
-  .half:hover .portrait { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(243,239,232,0.2), 0 0 120px rgba(0,0,0,0.8); }
-  .half:hover .portrait img { filter: contrast(1.1) saturate(1.05) brightness(1); transform: scale(1.06); }
+  .half:hover .portrait-glow,
+  .half.is-focused .portrait-glow { opacity: 1; }
+  .half:hover .portrait,
+  .half.is-focused .portrait { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(243,239,232,0.2), 0 0 120px rgba(0,0,0,0.8); }
+  .half:hover .portrait img,
+  .half.is-focused .portrait img { filter: contrast(1.1) saturate(1.05) brightness(1); transform: scale(1.06); }
 
   .name-block {
     display: flex; flex-direction: column; align-items: center;
@@ -251,14 +254,18 @@
     backdrop-filter: blur(6px);
   }
   .enter svg { width: 12px; height: 12px; transition: transform 300ms ease; }
-  .half:hover .enter {
+  .half:hover .enter,
+  .half.is-focused .enter {
     color: var(--fg);
     border-color: rgba(243, 239, 232, 0.4);
     background: rgba(243, 239, 232, 0.05);
   }
-  .half:hover .enter svg { transform: translateX(4px); }
-  .half.L:hover .enter { border-color: rgba(168, 195, 255, 0.5); }
-  .half.R:hover .enter { border-color: rgba(255, 196, 154, 0.5); }
+  .half:hover .enter svg,
+  .half.is-focused .enter svg { transform: translateX(4px); }
+  .half.L:hover .enter,
+  .half.L.is-focused .enter { border-color: rgba(168, 195, 255, 0.5); }
+  .half.R:hover .enter,
+  .half.R.is-focused .enter { border-color: rgba(255, 196, 154, 0.5); }
 
   .divider {
     position: fixed; left: 50%; top: 0; bottom: 0;
@@ -466,13 +473,17 @@
   });
 
   const halves = document.querySelectorAll('.half');
+
+  // Hover (desktop)
   halves.forEach(h => {
     h.addEventListener('mouseenter', () => {
       shader.setFocus(h.dataset.side);
+      h.classList.add('is-focused');
       fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
     });
     h.addEventListener('mouseleave', () => {
       shader.setFocus(null);
+      h.classList.remove('is-focused');
       fv.textContent = '—';
     });
     h.addEventListener('click', (e) => {
@@ -481,6 +492,52 @@
       const y = 1 - (e.clientY - r.top) / r.height;
       shader.pulse(x, y);
     });
+  });
+
+  // Touch — first tap focuses that side (mimics hover), second tap navigates.
+  // Any tap on the other side moves focus there.
+  let touchFocused = null;
+  let touchReleaseTimer = null;
+
+  function focusHalf(h, x, y) {
+    clearTimeout(touchReleaseTimer);
+    halves.forEach(o => { if (o !== h) o.classList.remove('is-focused'); });
+    h.classList.add('is-focused');
+    shader.setFocus(h.dataset.side);
+    shader.pulse(x, y);
+    fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
+    touchFocused = h;
+    touchReleaseTimer = setTimeout(() => {
+      h.classList.remove('is-focused');
+      shader.setFocus(null);
+      fv.textContent = '—';
+      touchFocused = null;
+    }, 2500);
+  }
+
+  halves.forEach(h => {
+    h.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      const r = canvas.getBoundingClientRect();
+      const x = (t.clientX - r.left) / r.width;
+      const y = 1 - (t.clientY - r.top) / r.height;
+      shader.setMouse(x, y);
+
+      if (touchFocused !== h) {
+        e.preventDefault();
+        focusHalf(h, x, y);
+      }
+    }, { passive: false });
+
+    h.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      const r = canvas.getBoundingClientRect();
+      const x = (t.clientX - r.left) / r.width;
+      const y = 1 - (t.clientY - r.top) / r.height;
+      shader.setMouse(x, y);
+      cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
+    }, { passive: true });
   });
 
   const comp = document.querySelector('.composition');
