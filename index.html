@@ -1,1 +1,477 @@
-<h1>Tunas.me — coming soon</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tunas.me — choose</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #05060a;
+    --fg: #f3efe8;
+    --fg-dim: rgba(243, 239, 232, 0.55);
+    --fg-faint: rgba(243, 239, 232, 0.18);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --serif: 'Instrument Serif', 'Times New Roman', serif;
+    --cool: #a8c3ff;
+    --warm: #ffc49a;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: var(--mono); font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    cursor: default;
+  }
+
+  #shader-canvas {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  .stage { position: fixed; inset: 0; z-index: 1; }
+
+  .top {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 24px 32px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    z-index: 20; pointer-events: none;
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 12px;
+    pointer-events: auto;
+  }
+  .brand-mark {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--fg);
+    box-shadow: 0 0 14px rgba(243, 239, 232, 0.6);
+    transform: translateY(-1px);
+  }
+  .brand-name {
+    font-family: var(--serif); font-size: 22px;
+    letter-spacing: 0.01em;
+  }
+  .brand-meta {
+    color: var(--fg-dim); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.2em;
+  }
+
+  .top-right {
+    text-align: right; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--fg-dim); line-height: 1.8;
+  }
+  .top-right .val { color: var(--fg); }
+
+  .composition {
+    position: fixed; inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    z-index: 5;
+  }
+
+  .half {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px;
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+    -webkit-text-decoration: none;
+    transition: transform 700ms cubic-bezier(.2,.8,.2,1);
+  }
+  .half.L { padding-right: 2%; }
+  .half.R { padding-left: 2%; }
+
+  .orbit {
+    position: relative;
+    width: min(32vw, 340px);
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .orbit::before,
+  .orbit::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--fg-faint);
+    pointer-events: none;
+  }
+  .orbit::before { transform: scale(1.08); border-color: rgba(243,239,232, 0.12); }
+  .orbit::after  { transform: scale(1.22); border-color: rgba(243,239,232, 0.06); }
+
+  .half.L .orbit::before { border-color: rgba(168, 195, 255, 0.22); }
+  .half.L .orbit::after  { border-color: rgba(168, 195, 255, 0.08); }
+  .half.R .orbit::before { border-color: rgba(255, 196, 154, 0.22); }
+  .half.R .orbit::after  { border-color: rgba(255, 196, 154, 0.08); }
+
+  .orbit .tick {
+    position: absolute; width: 6px; height: 1px;
+    background: var(--fg-dim);
+    top: 50%; left: -3px;
+    animation: spin 22s linear infinite;
+    transform-origin: calc(50% + 3px) 50%;
+  }
+  .half.R .orbit .tick { animation-direction: reverse; animation-duration: 28s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .portrait {
+    position: relative;
+    width: 72%; aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #0a0a12;
+    box-shadow:
+      0 0 0 1px rgba(243, 239, 232, 0.12),
+      0 0 80px rgba(0, 0, 0, 0.6),
+      inset 0 0 60px rgba(0, 0, 0, 0.8);
+    transition: transform 700ms cubic-bezier(.2,.8,.2,1), box-shadow 700ms ease;
+    z-index: 2;
+  }
+  .portrait img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: contrast(1.05) saturate(0.92) brightness(0.92);
+    transition: filter 700ms ease, transform 12s linear;
+  }
+
+  .portrait.placeholder {
+    background:
+      radial-gradient(circle at 30% 25%, rgba(255, 180, 140, 0.35), transparent 55%),
+      radial-gradient(circle at 70% 75%, rgba(255, 100, 130, 0.25), transparent 55%),
+      radial-gradient(circle at 50% 50%, rgba(80, 40, 60, 0.8), #0a0a12 70%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .portrait.placeholder::after {
+    content: 'NESHE';
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.5em;
+    color: rgba(255, 220, 200, 0.5);
+    text-transform: uppercase;
+    padding-left: 0.5em;
+  }
+  .portrait.placeholder::before {
+    content: 'PORTRAIT PENDING';
+    position: absolute; bottom: 18%;
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    color: rgba(255, 220, 200, 0.3);
+    text-transform: uppercase;
+  }
+
+  .portrait-glow {
+    position: absolute;
+    width: 120%; height: 120%;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0;
+    transition: opacity 600ms ease;
+    z-index: 0;
+  }
+  .half.L .portrait-glow { background: radial-gradient(circle, rgba(168, 195, 255, 0.55), transparent 60%); }
+  .half.R .portrait-glow { background: radial-gradient(circle, rgba(255, 196, 154, 0.55), transparent 60%); }
+
+  .half:hover .portrait-glow { opacity: 1; }
+  .half:hover .portrait { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(243,239,232,0.2), 0 0 120px rgba(0,0,0,0.8); }
+  .half:hover .portrait img { filter: contrast(1.1) saturate(1.05) brightness(1); transform: scale(1.06); }
+
+  .name-block {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 14px; z-index: 3; position: relative;
+    padding: 24px 32px;
+    border-radius: 24px;
+    background: radial-gradient(ellipse at center, rgba(5, 6, 10, 0.55) 0%, rgba(5, 6, 10, 0.25) 60%, transparent 100%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .name-eyebrow {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    color: rgba(243, 239, 232, 0.75);
+    text-shadow: 0 0 8px rgba(0, 0, 0, 1), 0 1px 3px rgba(0, 0, 0, 1);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .name-eyebrow::before,
+  .name-eyebrow::after {
+    content: '';
+    width: 16px; height: 1px;
+    background: var(--fg-faint);
+  }
+  .name {
+    font-family: 'Caveat', cursive;
+    font-size: clamp(56px, 6.5vw, 104px);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    margin: 0;
+    font-weight: 500;
+    font-style: normal;
+    white-space: nowrap;
+    text-decoration: none;
+    text-shadow:
+      0 0 18px rgba(0, 0, 0, 0.9),
+      0 0 40px rgba(0, 0, 0, 0.7),
+      0 2px 4px rgba(0, 0, 0, 1);
+  }
+  .half.L .name { color: #e8efff; }
+  .half.R .name { color: #ffecd8; }
+
+  .role {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0.04em;
+    line-height: 1.55;
+    color: rgba(243, 239, 232, 0.75);
+    text-align: center;
+    max-width: 320px;
+    background: transparent;
+    text-shadow:
+      0 0 8px rgba(0, 0, 0, 1),
+      0 0 16px rgba(0, 0, 0, 0.85),
+      0 1px 3px rgba(0, 0, 0, 1);
+    font-weight: 500;
+    text-wrap: pretty;
+  }
+
+  .enter {
+    margin-top: 6px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--fg-dim);
+    border: 1px solid var(--fg-faint);
+    padding: 10px 16px 10px 18px;
+    border-radius: 999px;
+    transition: color 300ms ease, border-color 300ms ease, background 300ms ease, transform 300ms ease;
+    background: rgba(5, 6, 10, 0.3);
+    backdrop-filter: blur(6px);
+  }
+  .enter svg { width: 12px; height: 12px; transition: transform 300ms ease; }
+  .half:hover .enter {
+    color: var(--fg);
+    border-color: rgba(243, 239, 232, 0.4);
+    background: rgba(243, 239, 232, 0.05);
+  }
+  .half:hover .enter svg { transform: translateX(4px); }
+  .half.L:hover .enter { border-color: rgba(168, 195, 255, 0.5); }
+  .half.R:hover .enter { border-color: rgba(255, 196, 154, 0.5); }
+
+  .divider {
+    position: fixed; left: 50%; top: 0; bottom: 0;
+    width: 1px; z-index: 6;
+    background: linear-gradient(to bottom, transparent, var(--fg-faint) 15%, var(--fg-faint) 85%, transparent);
+    pointer-events: none;
+    transform: translateX(-0.5px);
+  }
+  .divider-label {
+    position: fixed;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 7; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px;
+  }
+  .divider-label .or {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--fg-dim);
+    background: var(--bg);
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--fg-faint);
+  }
+  .divider-label .tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--fg-faint);
+  }
+
+  .bottom {
+    position: fixed;
+    bottom: 24px;
+    left: 32px; right: 32px;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    gap: 32px;
+  }
+  .caption {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--fg-dim);
+    max-width: 420px;
+    line-height: 1.9;
+  }
+  .coords {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--fg-dim);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.8;
+  }
+  .coords .v { color: var(--fg); }
+
+  .corner {
+    position: fixed; width: 20px; height: 20px;
+    z-index: 6; pointer-events: none;
+  }
+  .corner::before, .corner::after { content: ''; position: absolute; background: var(--fg-faint); }
+  .corner::before { width: 100%; height: 1px; top: 0; }
+  .corner::after { width: 1px; height: 100%; left: 0; top: 0; }
+  .corner.tl { top: 16px; left: 16px; }
+  .corner.tr { top: 16px; right: 16px; transform: scaleX(-1); }
+  .corner.bl { bottom: 16px; left: 16px; transform: scaleY(-1); }
+  .corner.br { bottom: 16px; right: 16px; transform: scale(-1, -1); }
+
+  @media (max-width: 720px) {
+    .composition { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .divider {
+      left: 0; right: 0; top: 50%; width: 100%; height: 1px; bottom: auto;
+      background: linear-gradient(to right, transparent, var(--fg-faint) 15%, var(--fg-faint) 85%, transparent);
+    }
+    .orbit { width: min(55vw, 260px); }
+    .name { font-size: 56px; }
+    .top { padding: 14px 16px; }
+    .bottom { left: 16px; right: 16px; }
+    .caption { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="shader-canvas"></canvas>
+
+<div class="top">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">tunas.me</span>
+    <span class="brand-meta">—&nbsp; the family, in orbit</span>
+  </div>
+  <div class="top-right">
+    <div>est. <span class="val">2026</span></div>
+    <div>vol. <span class="val">001</span></div>
+  </div>
+</div>
+
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<div class="composition">
+  <a class="half L" href="taner.html" data-side="L" aria-label="Enter Taner's page">
+    <div class="orbit">
+      <div class="portrait-glow"></div>
+      <div class="portrait">
+        <img src="assets/taner.png" alt="Taner">
+      </div>
+      <span class="tick"></span>
+    </div>
+    <div class="name-block">
+      <div class="name-eyebrow">Cool Silver</div>
+      <h1 class="name">Taner</h1>
+      <div class="role">Tech-Savvy, AI Innovation Driver, Chemist &amp; Blockchain Enthusiast - Bridging Science and Technology</div>
+      <div class="enter">
+        <span>Enter orbit</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </div>
+    </div>
+  </a>
+
+  <a class="half R" href="neshe.html" data-side="R" aria-label="Enter Neshe's page">
+    <div class="orbit">
+      <div class="portrait-glow"></div>
+      <div class="portrait placeholder"></div>
+      <span class="tick"></span>
+    </div>
+    <div class="name-block">
+      <div class="name-eyebrow">Warm Silver</div>
+      <h1 class="name">Neshe</h1>
+      <div class="role">Dedicated Problem Solver | Sustainability and Tech Enthusiast | Building Strategic Partnerships to Drive Positive Impact</div>
+      <div class="enter">
+        <span>Enter orbit</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </div>
+    </div>
+  </a>
+</div>
+
+<div class="divider"></div>
+<div class="divider-label">
+  <span class="tag">binary system</span>
+  <span class="or">/</span>
+  <span class="tag">two wells</span>
+</div>
+
+<div class="bottom">
+  <div class="caption">
+    Two bodies — one orbit. Hover a side to pull the field toward it; click to enter that page.
+  </div>
+  <div class="coords">
+    <div>cursor&nbsp; <span class="v" id="cv">0.000, 0.000</span></div>
+    <div>focus &nbsp;&nbsp;<span class="v" id="fv">—</span></div>
+  </div>
+</div>
+
+<script src="tunas-shader.js"></script>
+<script>
+(function () {
+  const canvas = document.getElementById('shader-canvas');
+  let shader;
+  try { shader = new window.TunasShader(canvas); }
+  catch (e) { console.error(e); return; }
+
+  const cv = document.getElementById('cv');
+  const fv = document.getElementById('fv');
+
+  window.addEventListener('mousemove', (e) => {
+    const x = e.clientX / window.innerWidth;
+    const y = 1 - e.clientY / window.innerHeight;
+    shader.setMouse(x, y);
+    cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
+  });
+
+  const halves = document.querySelectorAll('.half');
+  halves.forEach(h => {
+    h.addEventListener('mouseenter', () => {
+      shader.setFocus(h.dataset.side);
+      fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
+    });
+    h.addEventListener('mouseleave', () => {
+      shader.setFocus(null);
+      fv.textContent = '—';
+    });
+    h.addEventListener('click', (e) => {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      const y = 1 - (e.clientY - r.top) / r.height;
+      shader.pulse(x, y);
+    });
+  });
+
+  const comp = document.querySelector('.composition');
+  window.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth - 0.5);
+    const y = (e.clientY / window.innerHeight - 0.5);
+    comp.style.transform = `translate(${-x * 8}px, ${-y * 6}px)`;
+  });
+})();
+</script>
+
+</body>
+</html>
