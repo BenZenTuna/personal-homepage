@@ -188,7 +188,7 @@
     position: relative;
     display: grid; grid-template-columns: 1fr auto 1fr;
     gap: 0; align-items: center;
-    width: 100%; max-width: 880px;
+    width: 100%; max-width: 1200px;
     margin: 0 auto 48px;
   }
   .portrait {
@@ -759,23 +759,27 @@
     .scroll-cue::after { height: 28px; }
 
     /* Portraits — flex centering, scales up on tablet-width viewports.
-       Break out of .hero's horizontal padding so portraits can fill the viewport. */
+       Break out of .hero's horizontal padding so portraits can fill the viewport.
+       Taller aspect ratio makes each image dominate the hero visually. */
     .portraits {
       display: flex !important;
       flex-direction: row;
       justify-content: center;
-      gap: 10px;
-      width: calc(100vw - 16px);
+      gap: 8px;
+      width: 100vw;
       max-width: none;
-      margin-left: auto !important;
-      margin-right: auto !important;
+      margin-left: calc(50% - 50vw) !important;
+      margin-right: calc(50% - 50vw) !important;
       margin-bottom: 32px;
       grid-template-columns: none;
     }
-    .portrait { flex: 1 1 0; min-width: 0; }
+    .portrait {
+      flex: 1 1 0; min-width: 0;
+      aspect-ratio: 3 / 4;
+      border-radius: 14px;
+    }
     .portraits-seam { display: none; }
-    .portrait { border-radius: 14px; }
-    .portrait-label { font-size: 9px; letter-spacing: 0.3em; top: 10px; }
+    .portrait-label { font-size: 10px; letter-spacing: 0.3em; top: 12px; }
 
     /* Section head */
     .section-head {
