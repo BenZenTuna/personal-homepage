@@ -515,30 +515,58 @@
     }, 2500);
   }
 
-  halves.forEach(h => {
-    h.addEventListener('touchstart', (e) => {
-      const t = e.touches[0];
-      const r = canvas.getBoundingClientRect();
-      const x = (t.clientX - r.left) / r.width;
-      const y = 1 - (t.clientY - r.top) / r.height;
-      shader.setMouse(x, y);
-
-      if (touchFocused !== h) {
-        e.preventDefault();
-        focusHalf(h, x, y);
+  // Window-wide touch tracking — finger movement acts like hover on mobile.
+  // Detects which half the finger is over and focuses it automatically.
+  function halfUnderPoint(clientX, clientY) {
+    for (const h of halves) {
+      const r = h.getBoundingClientRect();
+      if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+        return h;
       }
-    }, { passive: false });
+    }
+    return null;
+  }
 
-    h.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      if (!t) return;
-      const r = canvas.getBoundingClientRect();
-      const x = (t.clientX - r.left) / r.width;
-      const y = 1 - (t.clientY - r.top) / r.height;
-      shader.setMouse(x, y);
-      cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
-    }, { passive: true });
-  });
+  function handleTouchPoint(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const x = (clientX - r.left) / r.width;
+    const y = 1 - (clientY - r.top) / r.height;
+    shader.setMouse(x, y);
+    cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
+
+    const h = halfUnderPoint(clientX, clientY);
+    if (h && h !== touchFocused) {
+      clearTimeout(touchReleaseTimer);
+      halves.forEach(o => { if (o !== h) o.classList.remove('is-focused'); });
+      h.classList.add('is-focused');
+      shader.setFocus(h.dataset.side);
+      fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
+      touchFocused = h;
+    } else if (!h && touchFocused) {
+      touchFocused.classList.remove('is-focused');
+      shader.setFocus(null);
+      fv.textContent = '—';
+      touchFocused = null;
+    }
+  }
+
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches[0]) handleTouchPoint(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches[0]) handleTouchPoint(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  window.addEventListener('touchend', () => {
+    clearTimeout(touchReleaseTimer);
+    touchReleaseTimer = setTimeout(() => {
+      if (touchFocused) {
+        touchFocused.classList.remove('is-focused');
+        shader.setFocus(null);
+        fv.textContent = '—';
+        touchFocused = null;
+      }
+    }, 1200);
+  }, { passive: true });
 
   const comp = document.querySelector('.composition');
   window.addEventListener('mousemove', (e) => {
