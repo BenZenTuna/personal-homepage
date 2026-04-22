@@ -1,5 +1,5 @@
 // Solo liquid-metal shader — one gravity well at center.
-// Used by taner.html and neshe.html. Accepts a `tint` param:
+// Used by /taner/ and /neshe/. Accepts a `tint` param:
 //  'cool' = blue/silver, 'warm' = amber/silver.
 
 const VERT = `
