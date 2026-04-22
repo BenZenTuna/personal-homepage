@@ -734,25 +734,24 @@
     .scroll-cue { font-size: 8px; margin-top: 36px; letter-spacing: 0.3em; }
     .scroll-cue::after { height: 28px; }
 
-    /* Portraits — sized in vw so they stay close together regardless
-       of parent width quirks. */
+    /* Portraits — extend past the hero's 20px horizontal padding via
+       negative margins and an explicit oversized width, plus a taller
+       aspect ratio so the pair dominates the hero visually. */
     .portraits {
       display: flex;
       flex-direction: row;
       justify-content: center;
-      align-items: center;
-      gap: 2vw;
-      width: 100%;
-      max-width: 100%;
-      margin: 0 auto 32px;
+      align-items: stretch;
+      gap: 6px;
+      width: calc(100% + 40px);
+      max-width: none;
+      margin: 0 -20px 32px;
       padding: 0;
     }
     .portrait {
-      flex: 0 0 auto;
-      width: 46vw;
-      max-width: 46vw;
+      flex: 1 1 0;
       min-width: 0;
-      aspect-ratio: 4 / 5;
+      aspect-ratio: 2 / 3;
       border-radius: 14px;
     }
     .portrait-label { font-size: 10px; letter-spacing: 0.3em; top: 12px; }
