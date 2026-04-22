@@ -133,6 +133,9 @@
     filter: contrast(1.05) saturate(0.92) brightness(0.92);
     transition: filter 700ms ease, transform 12s linear;
   }
+  /* Neshe's source photo frames wider than Taner's; zoom to bring the
+     face forward without changing the orbit size. */
+  .half.R .portrait img { transform: scale(1.2); }
 
   .portrait.placeholder {
     background:
@@ -178,6 +181,8 @@
   .half.is-focused .portrait { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(243,239,232,0.2), 0 0 120px rgba(0,0,0,0.8); }
   .half:hover .portrait img,
   .half.is-focused .portrait img { filter: contrast(1.1) saturate(1.05) brightness(1); transform: scale(1.06); }
+  .half.R:hover .portrait img,
+  .half.R.is-focused .portrait img { transform: scale(1.27); }
 
   .name-block {
     display: flex; flex-direction: column; align-items: center;
@@ -375,6 +380,17 @@
     .coords { text-align: left; }
     .corner { display: none; }
     .name-block { padding: 18px 24px; }
+
+    /* Shrink the tap target on mobile: only the portrait orbit and the
+       name itself should activate the link, not the whole column. Clicks
+       on children bubble through the pointer-events: none anchor so the
+       native navigation still fires. */
+    .composition .half { pointer-events: none; }
+    .composition .half .orbit,
+    .composition .half .name {
+      pointer-events: auto;
+      cursor: pointer;
+    }
   }
 </style>
 </head>
@@ -422,7 +438,9 @@
   <a class="half R" href="/neshe/" data-side="R" aria-label="Enter Neshe's page">
     <div class="orbit">
       <div class="portrait-glow"></div>
-      <div class="portrait placeholder"></div>
+      <div class="portrait">
+        <img src="assets/neshe.png" alt="Neshe">
+      </div>
       <span class="tick"></span>
     </div>
     <div class="name-block">
