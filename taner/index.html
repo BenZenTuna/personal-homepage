@@ -21,7 +21,7 @@
 
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2305060a'/><circle cx='16' cy='16' r='4' fill='%23f3efe8'/><circle cx='16' cy='16' r='7' fill='none' stroke='%23a8c3ff' stroke-width='1.2' opacity='0.55'/></svg>">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg: #05060a;
@@ -29,18 +29,19 @@
     --fg-dim: rgba(243, 239, 232, 0.68);
     --fg-faint: rgba(243, 239, 232, 0.22);
     --mono: 'JetBrains Mono', ui-monospace, monospace;
-    --serif: 'Instrument Serif', 'Times New Roman', serif;
+    --serif: 'Newsreader', 'Times New Roman', serif;
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     --accent: #a8c3ff;
     --accent-soft: rgba(168, 195, 255, 0.16);
 
     /* Type scale */
     --fs-label: 10px;
-    --fs-caption: 13px;
-    --fs-body: 18px;
-    --fs-lede: clamp(20px, 2.2vw, 24px);
+    --fs-caption: 11px;
+    --fs-body: 16px;
+    --fs-lede: 20px;
     --fs-h4: 22px;
-    --fs-h3: clamp(28px, 3vw, 36px);
-    --fs-h2: clamp(32px, 4vw, 48px);
+    --fs-h3: 28px;
+    --fs-h2: 32px;
     --fs-display: clamp(72px, 10vw, 172px);
 
     /* Line heights */
@@ -86,6 +87,9 @@
   }
   .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
   * { box-sizing: border-box; }
+  /* Global: <em> and <i> styled with accent color, never italic, since the
+     page intentionally avoids italic + handwritten styles outside the hero. */
+  em, i { font-style: normal; color: var(--accent); }
   html, body { margin: 0; background: var(--bg); color: var(--fg);
     font-family: var(--mono); font-size: 13px; -webkit-font-smoothing: antialiased; }
   body { overflow-x: hidden; }
@@ -152,7 +156,7 @@
   .brand { display: flex; align-items: baseline; gap: 12px; }
   .brand-mark { width: 7px; height: 7px; border-radius: 50%; background: var(--fg);
     box-shadow: 0 0 14px rgba(243,239,232,0.6); transform: translateY(-1px); }
-  .brand-name { font-family: 'Caveat', cursive; font-size: 26px; }
+  .brand-name { font-family: var(--serif); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
   .brand-meta { color: var(--fg-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; }
 
   .back {
@@ -263,7 +267,9 @@
   }
   .hero-sub {
     margin-top: 28px; max-width: 760px;
-    color: var(--fg-dim); font-size: 24px; line-height: 1.65;
+    color: var(--fg-dim);
+    font-family: var(--sans);
+    font-size: var(--fs-lede); line-height: 1.6;
     letter-spacing: 0.03em;
   }
   .scroll-cue {
@@ -295,8 +301,8 @@
     align-self: center;
   }
   .section-title {
-    font-family: 'Instrument Serif', serif; font-style: italic;
-    font-size: var(--fs-h2); margin: 0; font-weight: 400;
+    font-family: var(--serif);
+    font-size: var(--fs-h2); margin: 0; font-weight: 500;
     letter-spacing: -0.01em; line-height: var(--lh-snug);
   }
   .section-sub {
@@ -308,7 +314,7 @@
 
   /* About */
   .about {
-    font-family: 'Instrument Serif', serif;
+    font-family: var(--sans);
     font-size: var(--fs-lede); line-height: var(--lh-normal);
     color: rgba(243,239,232, 0.92); max-width: 860px;
   }
@@ -322,7 +328,7 @@
 
   /* Hidden-tee hover preview */
   .tee-preview {
-    position: absolute;
+    position: fixed;
     width: 200px;
     padding: 10px 10px 8px;
     background: rgba(5,6,10,0.92);
@@ -335,7 +341,19 @@
     pointer-events: none;
     transition: opacity 180ms ease, transform 220ms ease;
   }
-  .tee-preview.is-visible { opacity: 1; transform: translateY(0); }
+  .tee-preview.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .tee-preview-close {
+    position: absolute; top: -10px; right: -10px;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(168,195,255,0.5);
+    background: rgba(5,6,10,0.95);
+    color: var(--fg); cursor: pointer; padding: 0;
+    display: none; align-items: center; justify-content: center;
+    font-size: 16px; line-height: 1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  }
+  .tee-preview-close:hover { color: var(--accent); border-color: var(--accent); }
+  .tee-preview.is-touch .tee-preview-close { display: inline-flex; }
   .tee-preview img {
     display: block; width: 100%; aspect-ratio: 1;
     object-fit: contain; background: #000;
@@ -348,13 +366,68 @@
     text-align: center;
   }
   .about .sig {
-    font-family: 'Caveat', cursive; font-size: 28px; color: var(--accent);
-    opacity: 0.8; margin-top: 8px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--accent);
+    opacity: 0.85; margin-top: 12px;
   }
 
-  /* Code in public */
+  /* Code in public — hero stat strip */
+  .code-hero {
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    gap: 40px; align-items: end;
+    margin-bottom: 56px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--fg-faint);
+  }
+  .code-hero-lede {
+    font-family: var(--sans);
+    font-size: var(--fs-lede); line-height: 1.55;
+    color: rgba(243,239,232, 0.92); margin: 0;
+    letter-spacing: 0;
+  }
+  .code-hero-lede em { font-style: normal; color: var(--accent); }
+  .code-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-left: 1px solid var(--fg-faint);
+  }
+  .code-stat {
+    padding: 6px 16px;
+  }
+  .code-stat-num {
+    font-family: var(--serif);
+    font-size: var(--fs-h3); line-height: 1; color: var(--accent);
+    margin: 0 0 6px; letter-spacing: -0.01em; font-weight: 500;
+  }
+  .code-stat-label {
+    font-family: var(--mono); font-size: var(--fs-caption);
+    letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--fg-dim); line-height: 1.5;
+  }
+  .code-handle {
+    grid-column: 1 / -1;
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 12px 18px; margin-top: 4px; max-width: max-content;
+    border: 1px solid var(--fg-faint); border-radius: 999px;
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--fg-dim); text-decoration: none;
+    background: rgba(10,12,20,0.4);
+    transition: border-color 240ms, color 240ms, background 240ms;
+  }
+  .code-handle:hover {
+    border-color: rgba(168,195,255,0.5);
+    color: var(--accent);
+    background: rgba(168,195,255,0.06);
+  }
+  .code-handle .gh {
+    width: 14px; height: 14px; color: var(--accent);
+  }
+  .code-handle .arrow { color: var(--fg-dim); transition: transform 240ms; }
+  .code-handle:hover .arrow { transform: translate(2px, -2px); color: var(--accent); }
+
   .intro-copy {
-    font-family: 'Instrument Serif', serif;
+    font-family: var(--sans);
     font-size: var(--fs-lede); line-height: var(--lh-normal);
     color: rgba(243,239,232, 0.92);
     max-width: 860px; margin-bottom: 56px;
@@ -362,7 +435,141 @@
   .intro-copy a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(168,195,255,0.4); }
   .intro-copy a:hover { border-bottom-color: var(--accent); }
 
+  /* Project number + status corner ribbon */
+  .project-ribbon {
+    position: absolute; top: 0; left: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--fg-dim);
+    z-index: 3; pointer-events: none;
+  }
+  .project-ribbon .num { color: var(--accent); opacity: 0.85; }
+  .project-ribbon .sep { color: var(--fg-faint); }
+  .project-ribbon .status {
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .project-ribbon .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block;
+  }
+  .project-ribbon .status.live .status-dot {
+    background: #7dd87d;
+    box-shadow: 0 0 0 0 rgba(125,216,125,0.55);
+    animation: statusPulse 2.2s ease-out infinite;
+  }
+  .project-ribbon .status.live { color: #b8e6b8; }
+  .project-ribbon .status.shipping .status-dot { background: #f0c674; }
+  .project-ribbon .status.shipping { color: #f0c674; }
+  .project-ribbon .status.drafting .status-dot { background: rgba(243,239,232,0.4); }
+  @keyframes statusPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(125,216,125,0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(125,216,125,0); }
+    100% { box-shadow: 0 0 0 0 rgba(125,216,125,0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .project-ribbon .status.live .status-dot { animation: none; }
+  }
+
+  /* Stack line: BUILT WITH · X · Y · Z */
+  .project-stack {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 0 32px 22px;
+    font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+  .project-stack .stack-key { color: var(--accent); opacity: 0.8; }
+  .project-stack .stack-sep { color: var(--fg-faint); }
+  .project-stack .stack-tag {
+    color: rgba(243,239,232, 0.85);
+  }
+
+  /* Flagship hero layout: image left, content right */
+  .project.is-flagship .project-hero {
+    display: grid; grid-template-columns: 1.05fr 1fr;
+    align-items: stretch;
+    border-bottom: 1px solid var(--fg-faint);
+  }
+  .project.is-flagship .project-hero .project-media-link {
+    border: none; border-right: 1px solid var(--fg-faint);
+    aspect-ratio: auto; min-height: 100%;
+  }
+  .project.is-flagship .project-hero .project-content {
+    padding: 56px 36px 36px;
+    display: flex; flex-direction: column; gap: 18px;
+    justify-content: center;
+  }
+  .project.is-flagship .project-content .project-title {
+    font-size: 28px; margin: 0;
+  }
+  .project.is-flagship .project-content .project-headline {
+    margin: 0; font-size: var(--fs-lede); line-height: 1.55; max-width: none;
+  }
+  .project-cta {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 18px; margin-top: 8px;
+    border: 1px solid rgba(168,195,255,0.4);
+    border-radius: 999px;
+    background: rgba(168,195,255,0.08);
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--accent); text-decoration: none;
+    align-self: flex-start;
+    transition: background 200ms, border-color 200ms, transform 200ms;
+  }
+  .project-cta:hover {
+    background: rgba(168,195,255,0.16);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .project-cta .arrow { transition: transform 200ms; }
+  .project-cta:hover .arrow { transform: translate(2px, -2px); }
+  .project-ctas {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;
+  }
+  .project-ctas .project-cta { margin-top: 0; }
+  .project-cta.is-secondary {
+    background: transparent;
+    border-color: var(--fg-faint);
+    color: var(--fg-dim);
+  }
+  .project-cta.is-secondary:hover {
+    background: rgba(243,239,232, 0.06);
+    border-color: var(--fg-dim);
+    color: var(--fg);
+  }
+  .project-cta.is-secondary .gh-mark {
+    width: 12px; height: 12px;
+  }
+
+  /* Side project: dense, gallery on the right */
+  .project.is-side .project-hero {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--fg-faint);
+  }
+  .project.is-side .project-content {
+    padding: 56px 36px 28px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .project.is-side .project-content .project-title {
+    font-size: 28px; margin: 0;
+  }
+  .project.is-side .project-content .project-headline {
+    margin: 0; font-size: var(--fs-lede); line-height: 1.55; max-width: none;
+  }
+  .project.is-side .project-gallery-stack {
+    display: grid; grid-template-rows: 1fr 1fr; gap: 1px;
+    background: var(--fg-faint);
+    border-right: 1px solid var(--fg-faint);
+  }
+  .project.is-side .project-gallery-stack .project-media {
+    aspect-ratio: auto; cursor: zoom-in;
+  }
+
   .project {
+    position: relative;
     border: 1px solid var(--fg-faint);
     border-radius: 18px; overflow: hidden;
     background: rgba(10, 12, 20, 0.5);
@@ -381,8 +588,8 @@
     flex-wrap: wrap;
   }
   .project-title {
-    font-family: 'Instrument Serif', serif;
-    font-size: 36px; margin: 0; font-weight: 400; letter-spacing: -0.01em;
+    font-family: var(--serif);
+    font-size: 28px; margin: 0; font-weight: 500; letter-spacing: -0.015em;
     color: #e8efff; line-height: 1.1;
   }
   .project-title-link { text-decoration: none; color: inherit; display: inline-block; outline: none; }
@@ -427,8 +634,8 @@
   .project-head a:hover { color: var(--accent); }
   .project-head a svg { width: 11px; height: 11px; }
   .project-headline {
-    font-family: 'Instrument Serif', serif;
-    font-size: 20px; line-height: 1.5;
+    font-family: var(--sans);
+    font-size: var(--fs-lede); line-height: 1.55;
     margin: 0 32px 24px;
     color: rgba(243,239,232, 0.92); max-width: 640px;
   }
@@ -451,9 +658,12 @@
     display: block;
   }
   .project-gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--fg-faint); }
-  .project-gallery .project-media { border: none; cursor: zoom-in; }
-  .project-gallery .project-media img { transition: transform 600ms ease; }
-  .project-gallery .project-media:hover img { transform: scale(1.03); }
+  .project-gallery .project-media,
+  .project-gallery-stack .project-media { border: none; cursor: zoom-in; }
+  .project-gallery .project-media img,
+  .project-gallery-stack .project-media img { transition: transform 600ms ease; }
+  .project-gallery .project-media:hover img,
+  .project-gallery-stack .project-media:hover img { transform: scale(1.03); }
 
   /* Lightbox */
   .lightbox {
@@ -489,21 +699,152 @@
   .lightbox-close:hover { background: rgba(168,195,255,0.12); border-color: var(--accent); color: var(--accent); }
   .project-body {
     padding: 24px 32px 32px;
-    font-family: 'Instrument Serif', serif;
+    font-family: var(--sans);
     font-size: 18px; line-height: 1.7;
     color: rgba(243,239,232, 0.85); max-width: 680px;
   }
-  .project-body strong { color: var(--fg); font-weight: 400; font-style: italic; }
-  .project-body em { font-style: italic; }
+  .project-body strong { color: var(--fg); font-weight: 600; font-style: normal; }
+  .project-body em { font-style: normal; color: var(--accent); }
   .project-body code,
   .project-body .mono { font-family: var(--mono); font-size: 0.85em; color: var(--fg); }
 
   /* Frames & cuts */
+  .reel {
+    position: relative;
+    margin-bottom: 16px;
+  }
+  .reel-track {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* Bleed the next slide in from the right — strong "more here" cue */
+    padding-right: 14%;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .reel-track.is-dragging { cursor: grabbing; scroll-behavior: auto; scroll-snap-type: none; }
+  .reel-track.is-dragging .reel-slide { pointer-events: none; }
+  .reel-track::-webkit-scrollbar { display: none; }
+  .reel-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  /* Edge fade on the right so the peeking next slide melts into the page */
+  .reel::after {
+    content: '';
+    position: absolute; top: 0; bottom: 0; right: 0;
+    width: 12%; pointer-events: none;
+    background: linear-gradient(to right, rgba(5,6,10,0) 0%, rgba(5,6,10,0.85) 100%);
+    z-index: 2;
+    opacity: 1;
+    transition: opacity 240ms ease;
+  }
+  .reel.at-end::after { opacity: 0; }
+  .reel::before {
+    content: '';
+    position: absolute; top: 0; bottom: 0; left: 0;
+    width: 8%; pointer-events: none;
+    background: linear-gradient(to left, rgba(5,6,10,0) 0%, rgba(5,6,10,0.85) 100%);
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 240ms ease;
+  }
+  .reel.at-start { /* default */ }
+  .reel:not(.at-start):not(.at-end)::before { opacity: 1; }
+
+  .reel-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(243,239,232,0.22);
+    background: rgba(5,6,10,0.7);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    color: var(--fg); padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    z-index: 5;
+    transition: opacity 240ms ease, transform 240ms ease, border-color 200ms, background 200ms, color 200ms;
+  }
+  .reel-arrow svg { width: 16px; height: 16px; }
+  .reel-arrow:hover { color: var(--accent); border-color: rgba(168,195,255,0.55); background: rgba(168,195,255,0.08); }
+  .reel-arrow:focus-visible { outline: 1px dotted var(--accent); outline-offset: 4px; }
+  .reel-arrow.prev { left: -22px; }
+  .reel-arrow.next { right: -22px; }
+  .reel-arrow[disabled] {
+    opacity: 0; pointer-events: none;
+    transform: translateY(-50%) scale(0.9);
+  }
+
+  .reel-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin: 18px 0 4px;
+  }
+  .reel-dots {
+    display: inline-flex; gap: 8px; align-items: center;
+  }
+  .reel-dot {
+    appearance: none; border: 0; padding: 0; margin: 0; background: transparent;
+    width: 22px; height: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .reel-dot::before {
+    content: ''; display: block;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(243,239,232, 0.22);
+    transition: background 220ms ease, transform 220ms ease, width 220ms ease;
+  }
+  .reel-dot:hover::before { background: rgba(168,195,255, 0.55); }
+  .reel-dot.active::before {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(168,195,255, 0.65);
+    transform: scale(1.15);
+  }
+  .reel-counter {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .reel-counter .sep { color: var(--fg-faint); margin: 0 6px; }
+  .reel-counter .cur { color: var(--accent); }
+
   .video-wrap {
     position: relative; aspect-ratio: 16 / 9;
     width: 100%;
     border: 1px solid var(--fg-faint); border-radius: 14px; overflow: hidden;
-    background: #000; margin-bottom: 24px;
+    background: #000;
+  }
+  .video-wrap.is-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background:
+      linear-gradient(135deg, rgba(168,195,255,0.06), rgba(168,195,255,0.01)),
+      repeating-linear-gradient(45deg, rgba(168,195,255,0.04) 0 6px, transparent 6px 16px);
+  }
+  .video-wrap.is-placeholder .placeholder-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    text-align: center; padding: 24px;
+    color: var(--fg-dim);
+  }
+  .video-wrap.is-placeholder .placeholder-glyph {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 1px solid rgba(168,195,255, 0.4);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    background: rgba(168,195,255, 0.05);
+  }
+  .video-wrap.is-placeholder .placeholder-glyph svg { width: 18px; height: 18px; }
+  .video-wrap.is-placeholder .placeholder-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--accent); opacity: 0.85;
+  }
+  .video-wrap.is-placeholder .placeholder-title {
+    font-family: var(--sans);
+    font-size: 22px; line-height: 1.3; color: rgba(243,239,232, 0.78);
+    max-width: 320px;
   }
   .video-wrap video {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -537,36 +878,38 @@
   .video-btn.is-on .ic-on { display: none; }
   .video-btn.is-on .ic-off { display: inline; }
   .caption-line {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    font-family: var(--mono); font-size: var(--fs-caption); letter-spacing: 0.2em;
     color: var(--fg-dim); text-transform: uppercase; margin-bottom: 20px;
   }
   .caption-line .pin { color: var(--accent); }
   .notes {
-    font-family: 'Instrument Serif', serif;
-    font-size: 18px; line-height: 1.7; color: rgba(243,239,232, 0.85);
+    font-family: var(--sans);
+    font-size: var(--fs-lede); line-height: 1.6; color: rgba(243,239,232, 0.85);
     max-width: 640px;
   }
 
   /* Wear the idea — t-shirt grid */
-  .shop-link {
-    display: inline-flex; align-items: center; gap: 10px;
-    margin-bottom: 40px; padding: 10px 18px;
-    border: 1px solid var(--fg-faint); border-radius: 999px;
-    color: var(--fg-dim); text-decoration: none;
-    font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase;
-    transition: color 200ms, border-color 200ms, background 200ms;
-    background: rgba(5,6,10,0.4); backdrop-filter: blur(6px);
+  .tees-intro {
+    font-family: var(--sans);
+    font-size: var(--fs-lede); line-height: var(--lh-normal);
+    color: rgba(243,239,232, 0.92);
+    max-width: 720px; margin: 0 0 40px;
   }
-  .shop-link:hover { color: var(--accent); border-color: rgba(168,195,255,0.5); background: var(--accent-soft); }
-  .shop-link svg { width: 12px; height: 12px; }
+  .tees-intro em { color: var(--accent); font-style: normal; }
 
+  /* Bento layout: 4 columns, hero tee spans 2x2 */
   .tees {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(260px, auto);
     gap: 18px;
   }
+  .tee.tee-hero {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
   .tees-footnote {
-    font-family: 'Instrument Serif', serif;
+    font-family: var(--sans);
     font-size: var(--fs-lede); line-height: var(--lh-normal);
     color: rgba(243,239,232, 0.92);
     max-width: 860px; margin: 40px 0 0;
@@ -581,9 +924,18 @@
     position: relative; display: block; text-decoration: none; color: inherit;
     border: 1px solid var(--fg-faint); border-radius: 14px; overflow: hidden;
     background: rgba(10,12,20,0.5);
-    transition: border-color 300ms, transform 300ms;
+    transition: border-color 300ms, transform 300ms, box-shadow 300ms;
   }
-  .tee:hover { border-color: rgba(168,195,255,0.4); transform: translateY(-3px); }
+  .tee:hover {
+    border-color: rgba(168,195,255,0.4); transform: translateY(-3px);
+    box-shadow: 0 14px 40px -18px rgba(168,195,255,0.18);
+  }
+  .tee-num {
+    position: absolute; top: 12px; left: 14px; z-index: 3;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+    color: rgba(243,239,232, 0.42);
+    pointer-events: none;
+  }
   .tee-art {
     aspect-ratio: 1; position: relative;
     display: flex; align-items: center; justify-content: center;
@@ -616,13 +968,23 @@
     transition: transform 200ms ease;
   }
   /* Tee variant with real image + separate shop link */
-  .tee.tee-with-image { display: flex; flex-direction: column; padding: 0; }
+  .tee.tee-with-image { display: flex; flex-direction: column; padding: 0; height: 100%; }
+  .tee-art-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+  }
   .tee-art-btn {
     appearance: none; border: 0; margin: 0; padding: 0;
-    background: #000000; color: inherit; font: inherit;
-    display: block; width: 100%; aspect-ratio: 1;
+    background: #14171f;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% 60%, rgba(255,255,255,0.04), transparent 70%),
+      linear-gradient(135deg, #14171f 0%, #0e1118 100%);
+    color: inherit; font: inherit;
+    display: block; width: 100%; height: 100%;
     position: relative; overflow: hidden;
     cursor: zoom-in;
+    flex: 1 1 auto;
   }
   .tee-art-btn img {
     position: absolute; inset: 0;
@@ -633,6 +995,122 @@
   }
   .tee-art-btn:hover img { transform: scale(1.04); }
   .tee-art-btn:focus-visible { outline: 1px dotted var(--accent); outline-offset: -4px; }
+
+  /* Title overlay on the art — slides up on hover. Sibling of the lightbox
+     button so the link works without nesting <a> inside <button>. */
+  .tee-overlay {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 16px 16px 14px;
+    background: linear-gradient(to top, rgba(5,6,10,0.92) 0%, rgba(5,6,10,0.7) 60%, rgba(5,6,10,0) 100%);
+    z-index: 2;
+    transform: translateY(8px); opacity: 0;
+    transition: transform 320ms cubic-bezier(.2,.8,.2,1), opacity 320ms ease;
+    text-decoration: none; color: inherit;
+    pointer-events: none;
+  }
+  /* The overlay covers the entire art area when visible. We keep it behind
+     the title click target but in front for the gradient look. The hero
+     article's hover triggers it; the link inside the overlay is what
+     actually receives the click. */
+  .tee-with-image:hover .tee-overlay,
+  .tee-with-image:focus-within .tee-overlay {
+    transform: translateY(0); opacity: 1;
+    pointer-events: auto;
+  }
+  .tee-overlay-title {
+    display: block;
+    font-family: var(--serif);
+    font-size: 18px; line-height: 1.2;
+    font-weight: 500;
+    color: var(--fg);
+    margin-bottom: 6px;
+    letter-spacing: -0.005em;
+  }
+  .tee-overlay-cta {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .tee.tee-hero .tee-overlay-title { font-size: 22px; }
+
+  /* Resting title under the art (always visible, quiet) */
+  .tee-rest-title {
+    padding: 14px 16px 16px;
+    font-family: var(--serif);
+    font-size: 16px; line-height: 1.25;
+    font-weight: 500;
+    color: rgba(243,239,232, 0.78);
+    letter-spacing: -0.005em;
+  }
+  .tee.tee-hero .tee-rest-title { font-size: 17px; }
+
+  /* ---------- Placeholder tee — for designs not yet ready ----------
+     Markup pattern: copy <article class="tee tee-placeholder"> ... </article>
+     and tweak the label. To turn a placeholder into a real tee, replace
+     the inner <div class="tee-art-placeholder"> with the standard
+     <div class="tee-art-wrap">…</div> structure used by other tees, and
+     remove the `tee-placeholder` class.
+
+     ---------- "NEW" pip — for the freshest design online ----------
+     Add `is-new` to a tee article (e.g. <article class="tee tee-with-image is-new">)
+     to show a small "NEW" tag in the top-right corner. Move it to whichever
+     design is the most recent. Only one card should carry it at a time. */
+  .tee.tee-placeholder {
+    display: flex; flex-direction: column; padding: 0; height: 100%;
+    border-style: dashed;
+    border-color: rgba(168,195,255,0.18);
+    background: rgba(10,12,20,0.3);
+  }
+  .tee.tee-placeholder:hover {
+    border-color: rgba(168,195,255,0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 40px -22px rgba(168,195,255,0.14);
+  }
+  .tee-art-placeholder {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+    padding: 32px 18px;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 50%, rgba(168,195,255,0.05), transparent 70%),
+      linear-gradient(135deg, #0e1118 0%, #0a0c14 100%);
+    color: rgba(243,239,232, 0.4);
+    text-align: center;
+  }
+  .tee-art-placeholder .ph-glyph {
+    width: 38px; height: 38px;
+    border: 1px dashed rgba(168,195,255,0.35);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(168,195,255,0.55);
+    font-family: var(--serif); font-size: 18px;
+  }
+  .tee-art-placeholder .ph-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(243,239,232, 0.5);
+  }
+  .tee-art-placeholder .ph-sub {
+    font-family: var(--serif); font-size: 15px;
+    color: rgba(243,239,232, 0.65);
+    max-width: 220px;
+  }
+  .tee-placeholder .tee-rest-title {
+    color: rgba(243,239,232, 0.42);
+    font-style: normal;
+  }
+  .tee-new-pip {
+    position: absolute; top: 12px; right: 14px; z-index: 4;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.26em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    color: var(--accent);
+    border: 1px solid rgba(168,195,255,0.45);
+    border-radius: 4px;
+    background: rgba(168,195,255,0.08);
+    pointer-events: none;
+  }
+
   a.tee-label-link {
     text-decoration: none; color: var(--accent);
     transition: color 200ms, background 200ms;
@@ -646,34 +1124,58 @@
 
   /* Communication */
   .channels {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
-    max-width: 720px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    max-width: 980px;
   }
   .channel {
-    display: flex; flex-direction: column; gap: 10px;
-    padding: 28px 28px; border-radius: 16px;
+    position: relative;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 22px 22px 20px; border-radius: 14px;
     border: 1px solid var(--fg-faint);
     background: rgba(10,12,20,0.55);
     backdrop-filter: blur(10px);
     color: inherit; text-decoration: none;
     transition: border-color 300ms, transform 300ms, background 300ms;
+    overflow: hidden;
   }
   .channel:hover { border-color: rgba(168,195,255,0.4); transform: translateY(-2px); background: rgba(168,195,255,0.06); }
+  .channel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .channel-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid rgba(168,195,255,0.22);
+    background: rgba(168,195,255,0.06);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    transition: background 240ms, border-color 240ms, transform 240ms;
+  }
+  .channel-icon svg { width: 16px; height: 16px; }
+  .channel:hover .channel-icon {
+    background: rgba(168,195,255,0.14);
+    border-color: rgba(168,195,255,0.5);
+    transform: scale(1.05);
+  }
+  .channel-arrow {
+    font-family: var(--mono); font-size: 11px; color: var(--fg-dim);
+    transition: color 240ms, transform 240ms;
+  }
+  .channel:hover .channel-arrow { color: var(--accent); transform: translate(2px, -2px); }
   .channel-label {
     font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase;
-    color: var(--accent); opacity: 0.85;
+    color: var(--accent); opacity: 0.85; margin-top: 4px;
   }
   .channel-value {
-    font-family: 'Instrument Serif', serif; font-size: 22px; line-height: 1.3;
+    font-family: var(--sans); font-size: var(--fs-lede); line-height: 1.3;
     color: #e8efff; word-break: break-word;
   }
   .channel-hint {
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
     color: var(--fg-dim);
+    margin-top: auto;
   }
   .channel-email-img {
-    display: block; max-width: 100%; height: auto;
-    margin-top: 4px;
+    display: block; max-width: 220px; height: auto;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
     user-select: none; pointer-events: none;
   }
@@ -718,8 +1220,8 @@
     .hero { padding: 88px 20px 48px; min-height: calc(100vh - 40px); }
     .name { font-size: clamp(72px, 20vw, 96px); line-height: 0.95; }
     .hero-sub {
-      font-family: 'Instrument Serif', serif;
-      font-size: 19px; line-height: 1.55; letter-spacing: 0;
+      font-family: var(--sans);
+      font-size: var(--fs-body); line-height: 1.55; letter-spacing: 0;
       color: rgba(243,239,232, 0.82);
       margin: 20px auto 0; max-width: 520px;
       width: calc(100% - 32px);
@@ -764,7 +1266,7 @@
     }
     .section-num { font-size: 9px; letter-spacing: 0.25em; }
     .section-title {
-      font-size: 28px; line-height: 1.2;
+      font-size: 24px; line-height: 1.2;
       overflow-wrap: break-word; word-break: break-word;
     }
     .section-sub {
@@ -774,31 +1276,60 @@
     }
 
     /* About body prose — slightly tighter */
-    .about { font-size: 18px; line-height: 1.6; }
+    .about { font-size: var(--fs-body); line-height: 1.6; }
 
     /* Code section */
-    .intro-copy { font-size: 18px; line-height: 1.6; margin-bottom: 36px; }
+    .code-hero {
+      grid-template-columns: 1fr; gap: 24px;
+      padding-bottom: 24px; margin-bottom: 36px;
+    }
+    .code-hero-lede { font-size: var(--fs-body); line-height: 1.55; }
+    .code-stats { border-left: none; border-top: 1px solid var(--fg-faint); padding-top: 20px; }
+    .code-stat { padding: 4px 12px; }
+    .code-stat-num { font-size: 24px; }
+    .code-stat-label { font-size: 9px; letter-spacing: 0.22em; }
+    .code-handle { font-size: 10px; letter-spacing: 0.16em; padding: 10px 14px; }
+    .intro-copy { font-size: var(--fs-body); line-height: 1.6; margin-bottom: 36px; }
 
     /* Projects */
     .project { margin-bottom: 28px; border-radius: 14px; }
-    .project-head {
-      flex-direction: column; align-items: flex-start; gap: 10px;
-      padding: 20px 20px 12px;
+    .project-ribbon { padding: 10px 14px; font-size: 8px; letter-spacing: 0.22em; gap: 8px; }
+    .project.is-flagship .project-hero,
+    .project.is-side .project-hero { grid-template-columns: 1fr; }
+    .project.is-flagship .project-hero .project-media-link {
+      border-right: none; border-bottom: 1px solid var(--fg-faint);
+      min-height: auto; aspect-ratio: 16 / 9;
     }
-    .project-title {
-      font-size: 24px; line-height: 1.2;
-      overflow-wrap: break-word; word-break: break-word;
+    .project.is-flagship .project-content,
+    .project.is-side .project-content {
+      padding: 44px 20px 20px; gap: 12px;
     }
-    .project-flag { font-size: 8px; letter-spacing: 0.25em; padding: 4px 10px; }
-    .project-head > a { font-size: 9px; letter-spacing: 0.2em; }
-    .project-headline { margin: 0 20px 20px; font-size: 17px; line-height: 1.55; }
-    .project-body { padding: 20px; font-size: 17px; line-height: 1.65; }
-    .project-gallery { grid-template-columns: 1fr; }
+    .project.is-flagship .project-content .project-title { font-size: 22px; }
+    .project.is-side .project-content .project-title { font-size: 22px; }
+    .project.is-flagship .project-content .project-headline,
+    .project.is-side .project-content .project-headline { font-size: var(--fs-body); }
+    .project.is-side .project-gallery-stack {
+      grid-template-rows: auto auto;
+      border-right: none; border-bottom: 1px solid var(--fg-faint);
+    }
+    .project.is-side .project-gallery-stack .project-media { aspect-ratio: 16/9; }
+    .project-stack { padding: 0 20px 18px; font-size: 8px; letter-spacing: 0.18em; gap: 6px 10px; }
+    .project-cta { font-size: 9px; letter-spacing: 0.22em; padding: 10px 14px; }
 
     /* Video */
     .video-wrap { border-radius: 12px; }
-    .caption-line { font-size: 9px; letter-spacing: 0.22em; }
-    .notes { font-size: 17px; line-height: 1.65; }
+    .reel-track { padding-right: 16%; gap: 12px; }
+    .reel-arrow {
+      width: 36px; height: 36px;
+    }
+    .reel-arrow.prev { left: 6px; }
+    .reel-arrow.next { right: 6px; }
+    .reel::before, .reel::after { width: 12%; }
+    .video-wrap.is-placeholder .placeholder-title { font-size: 17px; }
+    .reel-meta { margin-top: 14px; gap: 12px; flex-wrap: wrap; }
+    .reel-counter { font-size: 9px; letter-spacing: 0.2em; }
+    .caption-line { font-size: 10px; letter-spacing: 0.22em; }
+    .notes { font-size: var(--fs-body); line-height: 1.6; }
 
     /* Wear the idea */
     .shop-link {
@@ -806,17 +1337,20 @@
       padding: 9px 14px; margin-bottom: 28px;
       gap: 8px;
     }
-    .shop-link .shop-nowrap { white-space: nowrap; }
-    .tees { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .tee-label { padding: 10px 12px; }
-    .tee-label-link { font-size: 9px; letter-spacing: 0.1em; gap: 8px; }
-    .tees-footnote { font-size: 17px; line-height: 1.6; margin-top: 28px; }
+    .tees { grid-template-columns: repeat(2, 1fr); grid-auto-rows: minmax(200px, auto); gap: 10px; }
+    .tee.tee-hero { grid-column: span 2; grid-row: span 2; }
+    .tee-overlay-title { font-size: 16px; }
+    .tee.tee-hero .tee-overlay-title { font-size: 18px; }
+    .tee-rest-title { font-size: 14px; padding: 10px 12px 12px; }
+    .tee.tee-hero .tee-rest-title { font-size: 15px; }
+    .tee-num { font-size: 9px; top: 10px; left: 12px; }
+    .tees-footnote { font-size: var(--fs-body); line-height: 1.6; margin-top: 28px; }
 
     /* Contact */
     .channels { grid-template-columns: 1fr; gap: 14px; }
-    .channel { padding: 22px; }
-    .channel-value { font-size: 19px; }
-    .channel-email-img { max-width: 260px; }
+    .channel { padding: 20px; }
+    .channel-value { font-size: var(--fs-body); }
+    .channel-email-img { max-width: 240px; }
 
     /* Footer */
     footer {
@@ -888,16 +1422,16 @@
       <p>
         Background in Computer Engineering, but most of my working years went into
         Analytical Chemistry. Chemistry was one of the ways I tried to read the
-        <a class="hidden-tee" data-preview="assets/tee-star-dust.png" data-preview-label="We Are All Star Dust" href="https://www.spreadshirt.se/shop/design/vi+aer+alla+gjorda+av+star+dust+t-shirt+universum+funktions-t-shirt+herr-D665f8e0f1a28af3250d3c2d6?sellable=J1MwjVDw5xcYE1jqZ73O-1310-7&amp;appearance=426" target="_blank" rel="noopener">language of the universe</a>.
+        <a class="hidden-tee" data-preview="/assets/tee-star-dust.png" data-preview-label="We Are All Star Dust" href="https://www.spreadshirt.se/shop/design/vi+aer+alla+gjorda+av+star+dust+t-shirt+universum+funktions-t-shirt+herr-D665f8e0f1a28af3250d3c2d6?sellable=J1MwjVDw5xcYE1jqZ73O-1310-7&amp;appearance=426" target="_blank" rel="noopener">language of the universe</a>.
       </p>
       <p>
         Lately I get to combine both — working at a research center where research
-        meets AI and digitalization. I follow <a class="hidden-tee" data-preview="assets/tee-chatgpt.png" data-preview-label="ChatGPT · Gifted Performer Troubadour" href="https://www.spreadshirt.se/shop/design/ai+komedi+rolig+chatt+gpt+asna+ai+kul+bytes+v2+vintage-t-shirt+dam-D64fd68a5c4e2be2a75596a2c?sellable=Dp2yXEQ5AgUz02wNabEw-1255-13&amp;appearance=688" target="_blank" rel="noopener">AI developments</a> closely, and I'm quietly
-        fascinated by <a class="hidden-tee" data-preview="assets/tee-blockchain.png" data-preview-label="Blockchain Birth on Block One" href="https://www.spreadshirt.se/shop/design/bitcoin-foedelse+pa+block+ett+aer+blockchain-foedelsen+ekologisk+premium-t-shirt+herr-D63ebf1722ffddd18359e373b?sellable=yrgOxVRAzgu9OrLj0JVa-812-7" target="_blank" rel="noopener">blockchain</a> as an idea.
+        meets AI and digitalization. I follow <a class="hidden-tee" data-preview="/assets/tee-chatgpt.png" data-preview-label="ChatGPT · Gifted Performer Troubadour" href="https://www.spreadshirt.se/shop/design/ai+komedi+rolig+chatt+gpt+asna+ai+kul+bytes+v2+vintage-t-shirt+dam-D64fd68a5c4e2be2a75596a2c?sellable=Dp2yXEQ5AgUz02wNabEw-1255-13&amp;appearance=688" target="_blank" rel="noopener">AI developments</a> closely, and I'm quietly
+        fascinated by <a class="hidden-tee" data-preview="/assets/tee-blockchain.png" data-preview-label="Blockchain Birth on Block One" href="https://www.spreadshirt.se/shop/design/bitcoin-foedelse+pa+block+ett+aer+blockchain-foedelsen+ekologisk+premium-t-shirt+herr-D63ebf1722ffddd18359e373b?sellable=yrgOxVRAzgu9OrLj0JVa-812-7" target="_blank" rel="noopener">blockchain</a> as an idea.
       </p>
       <p>
-        Off the clock, I love to <a class="hidden-tee" data-preview="assets/tee-mindfulness.png" data-preview-label="Mindfulness · Live the Moment" href="https://www.spreadshirt.se/shop/design/mindfulness+att+leva+nuets+oegonblick+t-shirt+herr-D6349b7de9ecade23483fcdae?sellable=yrZl7lADx4i9oY5AAoYE-6-7" target="_blank" rel="noopener">camp and cycle with the family</a>.
-        Once upon a time I was an enthusiast amateur <a class="hidden-tee" data-preview="assets/tee-go.png" data-preview-label="Universe's Best Game · GO" href="https://www.spreadshirt.se/shop/design/go+igo+baduk+weiqi+braedspel+moejliga+drag+vintage-t-shirt+herr-D63696dff8be71616f72e3b9a?sellable=or9RzVNyNGtG7zGgm5Ly-1183-7&amp;appearance=688" target="_blank" rel="noopener">GO player</a> — still, in my books, the universe's best game so far.
+        Off the clock, I love to <a class="hidden-tee" data-preview="/assets/tee-mindfulness.png" data-preview-label="Mindfulness · Live the Moment" href="https://www.spreadshirt.se/shop/design/mindfulness+att+leva+nuets+oegonblick+t-shirt+herr-D6349b7de9ecade23483fcdae?sellable=yrZl7lADx4i9oY5AAoYE-6-7" target="_blank" rel="noopener">camp and cycle with the family</a>.
+        Once upon a time I was an enthusiast amateur <a class="hidden-tee" data-preview="/assets/tee-go.png" data-preview-label="Universe's Best Game · GO" href="https://www.spreadshirt.se/shop/design/go+igo+baduk+weiqi+braedspel+moejliga+drag+vintage-t-shirt+herr-D63696dff8be71616f72e3b9a?sellable=or9RzVNyNGtG7zGgm5Ly-1183-7&amp;appearance=688" target="_blank" rel="noopener">GO player</a> — still, in my books, the universe's best game so far.
       </p>
       <p>
         And I wear (and make) designs for the things I like.
@@ -912,73 +1446,115 @@
       <h2 class="section-title">vibe coder</h2>
       <p class="section-sub">— what's public, what's shipping</p>
     </div>
-    <p class="intro-copy">
-      I'm a vibe coder, curious about how far the edges of vibe coding can be pushed.
-      What's public lives on <a href="https://github.com/BenZenTuna/" target="_blank" rel="noopener">github.com/BenZenTuna</a> —
-      only two repos are in the window right now; more will open up as they're ready.
-    </p>
 
-    <article class="project">
-      <div class="project-head">
-        <div>
+    <div class="code-hero">
+      <p class="code-hero-lede">
+        Curious about <em>how far the edges of vibe coding can be pushed</em> — building small, shipping fast, learning in public.
+      </p>
+      <div class="code-stats">
+        <div class="code-stat">
+          <p class="code-stat-num">02</p>
+          <p class="code-stat-label">Public<br>repos</p>
+        </div>
+        <div class="code-stat">
+          <p class="code-stat-num">02</p>
+          <p class="code-stat-label">Live<br>shipped</p>
+        </div>
+        <div class="code-stat">
+          <p class="code-stat-num">∞</p>
+          <p class="code-stat-label">Ideas<br>queued</p>
+        </div>
+        <a class="code-handle" href="https://github.com/BenZenTuna/" target="_blank" rel="noopener">
+          <svg class="gh" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.21-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.67.79.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+          <span>github · @BenZenTuna</span>
+          <span class="arrow">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <article class="project is-flagship">
+      <div class="project-ribbon">
+        <span class="num">01</span>
+        <span class="sep">/</span>
+        <span>flagship</span>
+        <span class="sep">·</span>
+        <span class="status live">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>live</span>
+        </span>
+      </div>
+
+      <div class="project-hero">
+        <a class="project-media project-media-link" href="https://opensolve.ai" target="_blank" rel="noopener" aria-label="Open Opensolve">
+          <img src="/assets/opensolve-og.png" alt="Opensolve — open graph image" loading="lazy" decoding="async">
+        </a>
+        <div class="project-content">
           <a class="project-title-link" href="https://opensolve.ai" target="_blank" rel="noopener">
             <h3 class="project-title">Opensolve.ai</h3>
           </a>
-          <div style="margin-top: 6px;">
-            <a class="project-flag project-flag-link" href="https://opensolve.ai" target="_blank" rel="noopener">Flagship</a>
+          <p class="project-headline">An AI workshop for real human questions — agents compete to answer, blind-vote each other, and a democratic LLM leaderboard emerges from the LLMs themselves.</p>
+          <div class="project-ctas">
+            <a class="project-cta" href="https://opensolve.ai" target="_blank" rel="noopener">
+              <span>visit opensolve.ai</span>
+              <span class="arrow">↗</span>
+            </a>
+            <a class="project-cta is-secondary" href="https://github.com/BenZenTuna/OpenSolve" target="_blank" rel="noopener">
+              <svg class="gh-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18a11 11 0 015.79 0c2.21-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.1 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+              <span>view source</span>
+              <span class="arrow">↗</span>
+            </a>
           </div>
         </div>
-        <a href="https://opensolve.ai" target="_blank" rel="noopener">
-          opensolve.ai
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17L17 7M9 7h8v8"/></svg>
-        </a>
       </div>
-      <p class="project-headline">An AI workshop for real human questions — agents compete to answer, blind-vote each other, and a democratic LLM leaderboard emerges from the LLMs themselves.</p>
-      <a class="project-media project-media-link" href="https://opensolve.ai" target="_blank" rel="noopener" aria-label="Open Opensolve">
-        <img src="/assets/opensolve-og.png" alt="Opensolve — open graph image" loading="lazy" decoding="async">
-      </a>
-      <div class="project-body">
-        <p>
-          <a class="inline-link" href="https://opensolve.ai" target="_blank" rel="noopener"><strong>Opensolve</strong></a>
-          is an AI workshop platform built around real human questions. A pool of agents
-          competes to answer each question, then <em>blind-votes</em> on the other answers —
-          no agent sees who wrote what — and a ranking surfaces the strongest replies.
-        </p>
-        <p>
-          By recording which models consistently win, a democratic
-          <em>LLM leaderboard built by the LLMs themselves</em> emerges alongside.
-          Already built and live at
-          <a class="inline-link" href="https://opensolve.ai" target="_blank" rel="noopener"><strong>opensolve.ai</strong></a>.
-        </p>
+
+      <div class="project-stack">
+        <span class="stack-key">built with</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Claude</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Next</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">TS</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Supabase</span>
       </div>
     </article>
 
-    <article class="project">
-      <div class="project-head">
-        <div>
-          <h3 class="project-title">Nutritrack</h3>
-          <div style="margin-top: 6px;"><span class="project-flag" style="background: rgba(168,195,255,0.08); color: var(--fg-dim); border-color: var(--fg-faint);">Side project</span></div>
+    <article class="project is-side">
+      <div class="project-ribbon">
+        <span class="num">02</span>
+        <span class="sep">/</span>
+        <span>side project</span>
+        <span class="sep">·</span>
+        <span class="status live">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>live</span>
+        </span>
+      </div>
+
+      <div class="project-hero">
+        <div class="project-gallery-stack">
+          <div class="project-media"><img src="/assets/nutritrack-01.png" alt="Nutritrack — overview &amp; food log" loading="lazy" decoding="async"></div>
+          <div class="project-media"><img src="/assets/nutritrack-02.png" alt="Nutritrack — charts &amp; trends" loading="lazy" decoding="async"></div>
         </div>
-        <a href="https://github.com/BenZenTuna/" target="_blank" rel="noopener">
-          github
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17L17 7M9 7h8v8"/></svg>
-        </a>
+        <div class="project-content">
+          <h3 class="project-title">Nutritrack</h3>
+          <p class="project-headline">Pair it with an openclaw agent — log meals by telling it what you ate or sending a photo, pick a goal, and the agent keeps your dashboard on track.</p>
+          <a class="project-cta" href="https://github.com/BenZenTuna/Nutritrack" target="_blank" rel="noopener">
+            <span>view on github</span>
+            <span class="arrow">↗</span>
+          </a>
+        </div>
       </div>
-      <p class="project-headline">Pair it with an openclaw agent — log meals by telling it what you ate or sending a photo, pick a goal, and the agent keeps your dashboard on track.</p>
-      <div class="project-gallery">
-        <div class="project-media small"><img src="/assets/nutritrack-01.png" alt="Nutritrack — overview &amp; food log" loading="lazy" decoding="async"></div>
-        <div class="project-media small"><img src="/assets/nutritrack-02.png" alt="Nutritrack — charts &amp; trends" loading="lazy" decoding="async"></div>
-      </div>
-      <div class="project-body">
-        <p>
-          <strong>Nutritrack</strong> turns an openclaw agent into your personal
-          nutrition tracker. Tell it what you ate — or send a picture of your meal —
-          and it records the calories for you.
-        </p>
-        <p>
-          Pick a goal (lose, gain, or maintain) and the agent keeps you aligned
-          with it through a dashboard that tracks your progress day by day.
-        </p>
+
+      <div class="project-stack">
+        <span class="stack-key">built with</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Openclaw</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Vision</span>
+        <span class="stack-sep">·</span>
+        <span class="stack-tag">Next</span>
       </div>
     </article>
   </section>
@@ -989,28 +1565,58 @@
       <h2 class="section-title">hobby documentarian</h2>
       <p class="section-sub">— teasers from trips, edited on the side</p>
     </div>
-    <div class="video-wrap is-paused" id="video-wrap">
-      <video
-        id="teaser-video"
-        src="/assets/egypt-teaser.mp4"
-        preload="metadata"
-        playsinline
-        loop
-        disablepictureinpicture
-        controlslist="nofullscreen nodownload noremoteplayback"
-        aria-label="Hurghada, Egypt — family trip teaser"></video>
-      <div class="video-controls">
-        <button type="button" class="video-btn" id="teaser-play" aria-label="Play">
-          <svg class="ic-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-          <svg class="ic-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-        </button>
-        <button type="button" class="video-btn" id="teaser-mute" aria-label="Unmute">
-          <svg class="ic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
-          <svg class="ic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 010 8M19 5a9 9 0 010 14"/></svg>
-        </button>
+    <div class="reel" id="reel" aria-roledescription="carousel" aria-label="Documentary teasers">
+      <button type="button" class="reel-arrow prev" id="reel-prev" aria-label="Previous video" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="reel-track" id="reel-track" tabindex="0">
+        <div class="reel-slide" data-caption="Hurghada · Egypt · family trip" data-pin="◉" aria-roledescription="slide" aria-label="1 of 2: Hurghada, Egypt">
+          <div class="video-wrap is-paused" id="video-wrap">
+            <video
+              id="teaser-video"
+              src="/assets/egypt-teaser.mp4"
+              preload="metadata"
+              playsinline
+              loop
+              disablepictureinpicture
+              controlslist="nofullscreen nodownload noremoteplayback"
+              aria-label="Hurghada, Egypt — family trip teaser"></video>
+            <div class="video-controls">
+              <button type="button" class="video-btn" id="teaser-play" aria-label="Play">
+                <svg class="ic-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="ic-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+              </button>
+              <button type="button" class="video-btn" id="teaser-mute" aria-label="Unmute">
+                <svg class="ic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+                <svg class="ic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 010 8M19 5a9 9 0 010 14"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="reel-slide" data-caption="Coming soon · next teaser" data-pin="○" aria-roledescription="slide" aria-label="2 of 2: Coming soon">
+          <div class="video-wrap is-placeholder" aria-hidden="false">
+            <div class="placeholder-inner">
+              <span class="placeholder-glyph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h11l3 3v7a1 1 0 0 1-1 1H5z"/><circle cx="10" cy="14" r="2"/></svg>
+              </span>
+              <span class="placeholder-label">In edit</span>
+              <span class="placeholder-title">Next teaser — dropping soon</span>
+            </div>
+          </div>
+        </div>
       </div>
+      <button type="button" class="reel-arrow next" id="reel-next" aria-label="Next video">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
     </div>
-    <p class="caption-line"><span class="pin">◉</span> Hurghada · Egypt · family trip</p>
+    <div class="reel-meta">
+      <p class="caption-line" id="reel-caption"><span class="pin">◉</span> <span id="reel-caption-text">Hurghada · Egypt · family trip</span></p>
+      <div class="reel-dots" id="reel-dots" role="tablist" aria-label="Video selector">
+        <button type="button" class="reel-dot active" data-index="0" role="tab" aria-label="Go to video 1" aria-selected="true"></button>
+        <button type="button" class="reel-dot" data-index="1" role="tab" aria-label="Go to video 2" aria-selected="false"></button>
+      </div>
+      <span class="reel-counter" aria-live="polite"><span class="cur" id="reel-cur">01</span><span class="sep">/</span><span id="reel-total">02</span></span>
+    </div>
     <p class="notes">
       Documentaries are a long-running passion, but right now it's strictly a hobby —
       mostly family trips that I edit on the side, layered with AI-generated narration
@@ -1025,62 +1631,132 @@
       <h2 class="section-title">designs I keep making</h2>
       <p class="section-sub">— ideas turned into wearables</p>
     </div>
-    <a class="shop-link" href="https://www.spreadshirt.se/shop/user/tt-shirts" target="_blank" rel="noopener">
-      <span>visit shop · spreadshirt / <span class="shop-nowrap">tt&#8209;shirts</span></span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17L17 7M9 7h8v8"/></svg>
-    </a>
+    <p class="tees-intro">
+      Every shirt starts with a thought I couldn't shake — usually about chemistry, AI, or being a parent.
+    </p>
     <div class="tees">
-      <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — Before &amp; After AI design">
+      <article class="tee tee-with-image tee-hero">
+        <span class="tee-num">01 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — Before &amp; After AI design">
           <img src="/assets/tee-before-after-ai.png" alt="Before &amp; After AI — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/evolutionen+av+den+maenskliga+hjaernan+foere+och+efter+ai+ekologisk+premium-t-shirt+herr-D66d5fff6851398410bddd5ad?sellable=YDVNLBodxYso2VGAALZj-812-7" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · Before &amp; After AI</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/evolutionen+av+den+maenskliga+hjaernan+foere+och+efter+ai+ekologisk+premium-t-shirt+herr-D66d5fff6851398410bddd5ad?sellable=YDVNLBodxYso2VGAALZj-812-7" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">Before &amp; After AI</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">Before &amp; After AI</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — Universe's Best Game · GO">
+        <span class="tee-num">02 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — Universe's Best Game · GO">
           <img src="/assets/tee-go.png" alt="Universe's Best Game · GO — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/go+igo+baduk+weiqi+braedspel+moejliga+drag+vintage-t-shirt+herr-D63696dff8be71616f72e3b9a?sellable=or9RzVNyNGtG7zGgm5Ly-1183-7&amp;appearance=688" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · Universe's Best Game · GO</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/go+igo+baduk+weiqi+braedspel+moejliga+drag+vintage-t-shirt+herr-D63696dff8be71616f72e3b9a?sellable=or9RzVNyNGtG7zGgm5Ly-1183-7&amp;appearance=688" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">Universe's Best Game · GO</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">Universe's Best Game · GO</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — We Are All Star Dust">
+        <span class="tee-num">03 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — We Are All Star Dust">
           <img src="/assets/tee-star-dust.png" alt="We Are All Star Dust — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/vi+aer+alla+gjorda+av+star+dust+t-shirt+universum+t-shirt+herr-D665f8e0f1a28af3250d3c2d6?sellable=J1MwjVDw5xcYE1jqZ73O-6-7" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · We Are All Star Dust</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/vi+aer+alla+gjorda+av+star+dust+t-shirt+universum+t-shirt+herr-D665f8e0f1a28af3250d3c2d6?sellable=J1MwjVDw5xcYE1jqZ73O-6-7" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">We Are All Star Dust</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">We Are All Star Dust</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — pH 7 · I am Neutral">
+        <span class="tee-num">04 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — pH 7 · I am Neutral">
           <img src="/assets/tee-ph7.png" alt="pH 7 · I am Neutral — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/ph+7+jag+aer+neutral+vetenskap+moeter+politik+t-shirt+med+v-ringning+dam-D66c0770e0b3af82742426f66?sellable=40eOB82YdYcx02zl1GEG-1329-13&amp;appearance=4" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · pH 7 · I am Neutral</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/ph+7+jag+aer+neutral+vetenskap+moeter+politik+t-shirt+med+v-ringning+dam-D66c0770e0b3af82742426f66?sellable=40eOB82YdYcx02zl1GEG-1329-13&amp;appearance=4" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">pH 7 · I am Neutral</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">pH 7 · I am Neutral</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — ChatGPT · Gifted Performer Troubadour">
+        <span class="tee-num">05 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — ChatGPT · Gifted Performer Troubadour">
           <img src="/assets/tee-chatgpt.png" alt="ChatGPT · Gifted Performer Troubadour — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/ai+komedi+rolig+chatt+gpt+asna+ai+kul+bytes+v2+vintage-t-shirt+dam-D64fd68a5c4e2be2a75596a2c?sellable=Dp2yXEQ5AgUz02wNabEw-1255-13&amp;appearance=688" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · ChatGPT · Gifted Performer Troubadour</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/ai+komedi+rolig+chatt+gpt+asna+ai+kul+bytes+v2+vintage-t-shirt+dam-D64fd68a5c4e2be2a75596a2c?sellable=Dp2yXEQ5AgUz02wNabEw-1255-13&amp;appearance=688" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">ChatGPT · Gifted Performer Troubadour</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">ChatGPT · Gifted Performer Troubadour</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — There is No Constant Mood">
+        <span class="tee-num">06 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — There is No Constant Mood">
           <img src="/assets/tee-constant-mood.png" alt="There is No Constant Mood — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/livets+kardiogram+olika+staemningar+unisex+ekologisk+t-shirt+med+avslappnad+passform-D6506db57a519eb0ae3a22727?sellable=R4Belbr8JzuJ8gLea7rv-2095-7&amp;appearance=950" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · There is No Constant Mood</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/livets+kardiogram+olika+staemningar+unisex+ekologisk+t-shirt+med+avslappnad+passform-D6506db57a519eb0ae3a22727?sellable=R4Belbr8JzuJ8gLea7rv-2095-7&amp;appearance=950" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">There is No Constant Mood</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">There is No Constant Mood</div>
       </article>
       <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — Don't Panic, I'm Not Human">
+        <span class="tee-num">07 / 09</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — Don't Panic, I'm Not Human">
           <img src="/assets/tee-dont-panic.png" alt="Don't Panic, I'm Not Human — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/utomjordisk+varning+fa+inte+panik+jag+aer+inte+maensklig+ekologisk+premium-t-shirt+herr-D669bfc9c79447a72951091bc?sellable=pN2nMa5ANjigGYJ03GXO-812-7&amp;appearance=2" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · Don't Panic, I'm Not Human</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/utomjordisk+varning+fa+inte+panik+jag+aer+inte+maensklig+ekologisk+premium-t-shirt+herr-D669bfc9c79447a72951091bc?sellable=pN2nMa5ANjigGYJ03GXO-812-7&amp;appearance=2" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">Don't Panic, I'm Not Human</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">Don't Panic, I'm Not Human</div>
       </article>
-      <article class="tee tee-with-image">
-        <button type="button" class="tee-art-btn" aria-label="Enlarge — Parent of a Newborn">
+      <article class="tee tee-with-image is-new">
+        <span class="tee-num">08 / 09</span>
+        <span class="tee-new-pip">● Newest</span>
+        <div class="tee-art-wrap">
+          <button type="button" class="tee-art-btn" aria-label="Enlarge — Parent of a Newborn">
           <img src="/assets/tee-parent-newborn.png" alt="Parent of a Newborn — t-shirt design" loading="lazy" decoding="async">
-        </button>
-        <a class="tee-label tee-label-link" href="https://www.spreadshirt.se/shop/design/soemnberoevad+foeraelder+ny+foeraelder+humor+t-shirt+vintage-t-shirt+dam-D63cb96f81d9ab870e5e1f543?sellable=Zb2akxqBexiNx54Lxr3V-1255-13&amp;appearance=688" target="_blank" rel="noopener"><span class="tee-label-link-inner">buy · Parent of a Newborn</span><span class="tee-label-arrow">↗</span></a>
+          </button>
+          <a class="tee-overlay" href="https://www.spreadshirt.se/shop/design/soemnberoevad+foeraelder+ny+foeraelder+humor+t-shirt+vintage-t-shirt+dam-D63cb96f81d9ab870e5e1f543?sellable=Zb2akxqBexiNx54Lxr3V-1255-13&amp;appearance=688" target="_blank" rel="noopener" style="pointer-events:auto;text-decoration:none;">
+            <span class="tee-overlay-title">Parent of a Newborn</span>
+            <span class="tee-overlay-cta">view design ↗</span>
+          </a>
+        </div>
+        <div class="tee-rest-title">Parent of a Newborn</div>
+      </article>
+      <!-- Placeholder slot — duplicate this <article> for more "coming soon"
+           cards, or convert it to a real tee by swapping the <div class="tee-art-placeholder">
+           block for the standard tee-art-wrap structure used above and dropping
+           `tee-placeholder` from the article class. Remember to keep the tee-num
+           denominator in sync (X / 09, X / 10, …). -->
+      <article class="tee tee-placeholder">
+        <span class="tee-num">09 / 09</span>
+        <div class="tee-art-placeholder">
+          <span class="ph-glyph" aria-hidden="true">+</span>
+          <span class="ph-label">Next design</span>
+          <span class="ph-sub">In the sketchbook — coming soon.</span>
+        </div>
+        <div class="tee-rest-title">Untitled — in progress</div>
       </article>
     </div>
     <p class="tees-footnote">
-      For more designs visit the <a href="https://www.spreadshirt.se/shop/user/tt-shirts" target="_blank" rel="noopener">TT-Shirts shop on Spreadshirt ↗</a>
+      Available on Spreadshirt — <a href="https://www.spreadshirt.se/shop/user/tt-shirts" target="_blank" rel="noopener">browse the full TT&#8209;Shirts shop ↗</a>
     </p>
   </section>
 
@@ -1090,15 +1766,42 @@
       <h2 class="section-title">say hello</h2>
       <p class="section-sub">— or just say hi</p>
     </div>
+
     <div class="channels">
       <a class="channel" href="https://www.linkedin.com/in/taner-tuna/" target="_blank" rel="noopener">
+        <div class="channel-head">
+          <span class="channel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.22 8h4.56v14H.22V8zm7.69 0h4.37v1.92h.06c.61-1.15 2.09-2.36 4.31-2.36 4.61 0 5.46 3.03 5.46 6.97V22h-4.56v-6.18c0-1.47-.03-3.36-2.05-3.36-2.05 0-2.36 1.6-2.36 3.26V22H7.91V8z"/></svg>
+          </span>
+          <span class="channel-arrow">↗</span>
+        </div>
         <span class="channel-label">LinkedIn</span>
-        <span class="channel-value">linkedin.com/in/taner-tuna</span>
-        <span class="channel-hint">↗ open profile</span>
+        <span class="channel-value">in/taner-tuna</span>
+        <span class="channel-hint">work, talks, the long-form things</span>
       </a>
+
+      <a class="channel" id="x-channel" href="https://x.com/tanerr_" target="_blank" rel="noopener">
+        <div class="channel-head">
+          <span class="channel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.658l-5.214-6.817-5.965 6.817H1.68l7.73-8.835L1.254 2.25h6.825l4.713 6.231 5.452-6.231zm-1.16 17.52h1.833L7.084 4.126H5.117l11.967 15.644z"/></svg>
+          </span>
+          <span class="channel-arrow">↗</span>
+        </div>
+        <span class="channel-label">X / Twitter</span>
+        <span class="channel-value">@tanerr_</span>
+        <span class="channel-hint">half-baked thoughts, in real time</span>
+      </a>
+
       <div class="channel" id="email-channel" role="button" tabindex="0" aria-label="Compose email">
+        <div class="channel-head">
+          <span class="channel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          </span>
+          <span class="channel-arrow" id="email-arrow">copy ↗</span>
+        </div>
         <span class="channel-label">Email</span>
         <img class="channel-email-img" src="/assets/email.png" alt="taner [at] tunas [dot] me" loading="lazy" decoding="async">
+        <span class="channel-hint">click to copy &amp; open mail</span>
       </div>
     </div>
   </section>
@@ -1266,7 +1969,7 @@
       setTimeout(function () { lbImg.src = ''; }, 250);
     }
 
-    document.querySelectorAll('.project-gallery .project-media img').forEach(function (img) {
+    document.querySelectorAll('.project-gallery .project-media img, .project-gallery-stack .project-media img').forEach(function (img) {
       img.parentElement.addEventListener('click', function (e) {
         e.preventDefault();
         open(img.src, img.alt);
@@ -1352,6 +2055,231 @@
     document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
   })();
 
+  // Reel carousel — horizontal scroll-snap with prev/next buttons, dot
+  // indicators, and live caption updates. Pauses any non-active video.
+  (function () {
+    var reel = document.getElementById('reel');
+    var track = document.getElementById('reel-track');
+    var prevBtn = document.getElementById('reel-prev');
+    var nextBtn = document.getElementById('reel-next');
+    var dots = Array.prototype.slice.call(document.querySelectorAll('#reel-dots .reel-dot'));
+    var captionText = document.getElementById('reel-caption-text');
+    var captionPin = document.querySelector('#reel-caption .pin');
+    var curEl = document.getElementById('reel-cur');
+    var totalEl = document.getElementById('reel-total');
+    if (!reel || !track) return;
+
+    var slides = Array.prototype.slice.call(track.querySelectorAll('.reel-slide'));
+    var total = slides.length;
+    if (totalEl) totalEl.textContent = String(total).padStart(2, '0');
+
+    function pad(n) { return String(n + 1).padStart(2, '0'); }
+
+    function activeIndex() {
+      var x = track.scrollLeft + track.clientWidth / 2;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < slides.length; i++) {
+        var c = slides[i].offsetLeft + slides[i].offsetWidth / 2;
+        var d = Math.abs(c - x);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      return best;
+    }
+
+    function update() {
+      var i = activeIndex();
+      dots.forEach(function (d, di) {
+        var on = di === i;
+        d.classList.toggle('active', on);
+        d.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (curEl) curEl.textContent = pad(i);
+      var slide = slides[i];
+      if (slide && captionText) captionText.textContent = slide.getAttribute('data-caption') || '';
+      if (slide && captionPin) captionPin.textContent = slide.getAttribute('data-pin') || '◉';
+
+      // Edge fades + arrow disable
+      var atStart = track.scrollLeft <= 4;
+      var atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+      reel.classList.toggle('at-start', atStart);
+      reel.classList.toggle('at-end', atEnd);
+      if (prevBtn) prevBtn.disabled = atStart;
+      if (nextBtn) nextBtn.disabled = atEnd;
+
+      // Pause any video not in the active slide
+      slides.forEach(function (s, si) {
+        var v = s.querySelector('video');
+        if (!v) return;
+        if (si !== i && !v.paused) v.pause();
+      });
+    }
+
+    // Manual smooth-scroll via rAF — robust against environments where
+    // native smooth-scroll on overflow:auto containers is flaky (e.g.
+    // some embedded/sandboxed preview iframes silently no-op scrollTo).
+    var scrollAnim = null;
+    function scrollTrackTo(targetLeft, duration) {
+      if (scrollAnim) { clearInterval(scrollAnim); scrollAnim = null; }
+      duration = duration == null ? 480 : duration;
+      var start = track.scrollLeft;
+      var max = Math.max(0, track.scrollWidth - track.clientWidth);
+      targetLeft = Math.max(0, Math.min(max, targetLeft));
+      var delta = targetLeft - start;
+      if (Math.abs(delta) < 1) { track.scrollLeft = targetLeft; return; }
+      var t0 = performance.now();
+      // setInterval (not rAF) so animation runs even when the preview
+      // iframe is throttled / backgrounded.
+      scrollAnim = setInterval(function () {
+        var t = Math.min(1, (performance.now() - t0) / duration);
+        var e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+        track.scrollLeft = start + delta * e;
+        if (t >= 1) { clearInterval(scrollAnim); scrollAnim = null; }
+      }, 16);
+    }
+
+    function goTo(i) {
+      i = Math.max(0, Math.min(total - 1, i));
+      var s = slides[i];
+      if (!s) return;
+      // Temporarily disable scroll-snap during animated scroll so the
+      // browser doesn't fight our rAF updates.
+      var prevSnap = track.style.scrollSnapType;
+      track.style.scrollSnapType = 'none';
+      scrollTrackTo(s.offsetLeft, 480);
+      setTimeout(function () { track.style.scrollSnapType = prevSnap; }, 520);
+    }
+
+    if (prevBtn) prevBtn.addEventListener('click', function () { goTo(activeIndex() - 1); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { goTo(activeIndex() + 1); });
+    dots.forEach(function (d, di) {
+      d.addEventListener('click', function () { goTo(di); });
+    });
+
+    // Pointer drag-to-scroll (mouse + touch via Pointer Events). Disables
+    // snap during the drag, then snaps to the nearest slide on release.
+    var dragState = null;
+    var DRAG_THRESHOLD = 6; // px before we consider it a real drag
+    var didDrag = false;
+
+    function nearestIndex() {
+      var x = track.scrollLeft + track.clientWidth / 2;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < slides.length; i++) {
+        var c = slides[i].offsetLeft + slides[i].offsetWidth / 2;
+        var d = Math.abs(c - x);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      return best;
+    }
+
+    function onPointerDown(e) {
+      // Don't hijack drags that originate on interactive controls
+      if (e.target.closest('.video-btn, .reel-arrow, .reel-dot, button, a')) return;
+      // Only primary button for mouse
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      dragState = {
+        startX: e.clientX,
+        startScroll: track.scrollLeft,
+        lastX: e.clientX,
+        lastT: performance.now(),
+        velocity: 0,
+        moved: false,
+        pointerId: e.pointerId
+      };
+      didDrag = false;
+      try { track.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+
+    function onPointerMove(e) {
+      if (!dragState || e.pointerId !== dragState.pointerId) return;
+      var dx = e.clientX - dragState.startX;
+      if (!dragState.moved && Math.abs(dx) >= DRAG_THRESHOLD) {
+        dragState.moved = true;
+        didDrag = true;
+        track.classList.add('is-dragging');
+      }
+      if (dragState.moved) {
+        track.scrollLeft = dragState.startScroll - dx;
+        var now = performance.now();
+        var dt = Math.max(1, now - dragState.lastT);
+        dragState.velocity = (e.clientX - dragState.lastX) / dt; // px/ms
+        dragState.lastX = e.clientX;
+        dragState.lastT = now;
+        e.preventDefault();
+      }
+    }
+
+    function endDrag(e) {
+      if (!dragState) return;
+      var moved = dragState.moved;
+      var velocity = dragState.velocity;
+      try { track.releasePointerCapture(dragState.pointerId); } catch (err) {}
+      dragState = null;
+      track.classList.remove('is-dragging');
+      if (!moved) return;
+      // Decide target slide based on current position + flick velocity
+      var i = nearestIndex();
+      if (Math.abs(velocity) > 0.4) {
+        i = velocity < 0 ? i + 1 : i - 1;
+      }
+      goTo(i);
+      // Suppress click that follows a drag
+      var swallow = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+      track.addEventListener('click', swallow, { capture: true, once: true });
+    }
+
+    track.addEventListener('pointerdown', onPointerDown);
+    track.addEventListener('pointermove', onPointerMove);
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('pointerleave', function (e) {
+      if (dragState && dragState.pointerId === e.pointerId) endDrag(e);
+    });
+    // Prevent images/videos from being natively dragged
+    track.addEventListener('dragstart', function (e) { e.preventDefault(); });
+
+    // Click-to-focus: tapping ANYWHERE inside a non-active slide (including
+    // the partly-visible peek of the next clip) scrolls it to focus and
+    // plays its video. Uses capture phase so it intercepts before the inner
+    // <video> click handler fires its own play/pause toggle.
+    track.addEventListener('click', function (e) {
+      if (didDrag) { didDrag = false; return; }
+      var slide = e.target.closest('.reel-slide');
+      if (!slide) return;
+      var idx = slides.indexOf(slide);
+      if (idx < 0) return;
+      var cur = activeIndex();
+      if (idx === cur) return; // active slide: let its own controls handle it
+      // Intercept everything else, including clicks on the inner <video>
+      e.preventDefault();
+      e.stopPropagation();
+      goTo(idx);
+      // After the smooth-scroll settles, play the video in the focused slide
+      setTimeout(function () {
+        var v = slide.querySelector('video');
+        if (v && v.paused) {
+          v.play().catch(function () { /* autoplay may be blocked w/ sound */ });
+        }
+      }, 520);
+    }, { capture: true });
+
+    // Throttle scroll updates with rAF
+    var ticking = false;
+    track.addEventListener('scroll', function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { update(); ticking = false; });
+    }, { passive: true });
+
+    track.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex() + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex() - 1); }
+    });
+
+    window.addEventListener('resize', update);
+    update();
+  })();
+
   // Pause the teaser video when it scrolls offscreen — resumes automatic
   // bandwidth/cpu savings once the Frames section leaves view.
   (function () {
@@ -1413,72 +2341,194 @@
     syncMute();
   })();
 
-  // Hidden-tee preview: hover (desktop) or first-tap (touch) shows a small
-  // image of the t-shirt design above the link; second tap follows the link.
+  // Hidden-tee preview: hover (desktop) shows a small image of the t-shirt
+  // design; on touch, first tap shows preview, second tap follows the link,
+  // and tapping the close button or outside dismisses it.
   (function () {
     var links = document.querySelectorAll('.hidden-tee[data-preview]');
     if (!links.length) return;
 
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    // Preload all preview images so the first hover behaves like the second:
+    // image is already in the cache, onload fires synchronously on assignment,
+    // and we don't get the "first hover does nothing" race.
+    var preloadedSrcs = {};
+    links.forEach(function (link) {
+      var src = link.getAttribute('data-preview');
+      if (!src || preloadedSrcs[src]) return;
+      preloadedSrcs[src] = true;
+      var pre = new Image();
+      pre.src = src;
+    });
+
     var preview = document.createElement('div');
     preview.className = 'tee-preview';
-    preview.innerHTML = '<img alt=""><span class="tee-preview-label"></span>';
+    preview.innerHTML =
+      '<button type="button" class="tee-preview-close" aria-label="Close preview">×</button>' +
+      '<img alt="">' +
+      '<span class="tee-preview-label"></span>';
     document.body.appendChild(preview);
     var previewImg = preview.querySelector('img');
     var previewLabel = preview.querySelector('.tee-preview-label');
+    var previewClose = preview.querySelector('.tee-preview-close');
 
     var hideTimer = null;
     var activeLink = null;
-    var imgOk = false;
 
+    // Position relative to the viewport (fixed). Prefer above the link;
+    // if not enough room, flip below. Clamp horizontally to viewport.
     function position(link) {
       var rect = link.getBoundingClientRect();
-      var pageY = rect.top + window.scrollY;
-      var pageX = rect.left + window.scrollX + rect.width / 2;
-      preview.style.left = Math.round(pageX - 100) + 'px';
-      preview.style.top = Math.round(pageY - 236) + 'px';
+      var pw = preview.offsetWidth || 220;
+      var ph = preview.offsetHeight || 230;
+      var margin = 12;
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+
+      // Horizontal: center on link, clamp to viewport
+      var left = rect.left + rect.width / 2 - pw / 2;
+      left = Math.max(margin, Math.min(vw - pw - margin, left));
+
+      // Vertical: above by default, flip below if it would go off-top
+      var top = rect.top - ph - 10;
+      if (top < margin) {
+        top = rect.bottom + 10;
+      }
+      // Clamp bottom
+      top = Math.min(vh - ph - margin, top);
+
+      preview.style.left = Math.round(left) + 'px';
+      preview.style.top = Math.round(top) + 'px';
     }
+
     function show(link) {
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       activeLink = link;
-      imgOk = false;
-      previewImg.onload = function () {
-        imgOk = true;
+      preview.classList.toggle('is-touch', isTouch);
+
+      function ready() {
+        // Guard against late onload firing after the user has moved away.
+        if (activeLink !== link) return;
         preview.classList.add('is-visible');
-      };
+        position(link);
+      }
+      previewImg.onload = ready;
       previewImg.onerror = function () {
         preview.classList.remove('is-visible');
+        activeLink = null;
       };
-      previewImg.src = link.getAttribute('data-preview');
+
+      var src = link.getAttribute('data-preview');
       previewLabel.textContent = link.getAttribute('data-preview-label') || '';
+
+      // Show the frame immediately so layout is correct, even before the
+      // image paints. The img will pop in as soon as it's decoded.
+      preview.classList.add('is-visible');
       position(link);
+
+      // If the image is already loaded (cached / same as last time), call
+      // ready() synchronously — onload may not fire for cached assignments.
+      var alreadyLoaded =
+        previewImg.src &&
+        previewImg.src.indexOf(src) !== -1 &&
+        previewImg.complete &&
+        previewImg.naturalWidth > 0;
+      if (alreadyLoaded) {
+        ready();
+      } else {
+        previewImg.src = src;
+        // Some browsers report complete=true synchronously for fully-cached
+        // images right after assigning .src — handle that too.
+        if (previewImg.complete && previewImg.naturalWidth > 0) ready();
+      }
     }
+
     function hide() {
       activeLink = null;
       preview.classList.remove('is-visible');
     }
+
     function deferHide() {
       if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(hide, 120);
+      hideTimer = setTimeout(hide, 140);
     }
 
+    // Close button
+    previewClose.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+    });
+    previewClose.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+    }, { passive: false });
+
+    // Keep preview open while hovering it (desktop)
+    preview.addEventListener('mouseenter', function () {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    });
+    preview.addEventListener('mouseleave', deferHide);
+
     links.forEach(function (link) {
+      // Desktop hover
       link.addEventListener('mouseenter', function () { show(link); });
       link.addEventListener('mouseleave', deferHide);
       link.addEventListener('focus', function () { show(link); });
       link.addEventListener('blur', deferHide);
 
-      // Touch: first tap shows preview, second tap within 3s follows the link.
+      // Touch: first tap shows preview; second tap on same link follows the link
       link.addEventListener('touchstart', function (e) {
         if (activeLink !== link) {
           e.preventDefault();
           show(link);
-          setTimeout(function () {
-            if (activeLink === link) hide();
-          }, 3000);
         }
+        // else: let the second tap navigate naturally
       }, { passive: false });
+
+      // Click on touch devices when preview is up should also navigate
+      link.addEventListener('click', function (e) {
+        if (isTouch && activeLink !== link) {
+          // If this is the first tap that opened the preview, suppress nav
+          // (touchstart already prevented default but click can still fire)
+          e.preventDefault();
+        }
+      });
     });
 
+    // Tap outside on touch devices to dismiss
+    document.addEventListener('touchstart', function (e) {
+      if (!activeLink) return;
+      if (preview.contains(e.target)) return;
+      // If tapping a hidden-tee link, let its own handler manage state
+      var t = e.target;
+      while (t && t !== document.body) {
+        if (t.classList && t.classList.contains('hidden-tee')) return;
+        t = t.parentNode;
+      }
+      hide();
+    }, { passive: true });
+
+    // Click outside on desktop also dismisses (defensive)
+    document.addEventListener('click', function (e) {
+      if (!activeLink || isTouch) return;
+      if (preview.contains(e.target)) return;
+      var t = e.target;
+      while (t && t !== document.body) {
+        if (t.classList && t.classList.contains('hidden-tee')) return;
+        t = t.parentNode;
+      }
+      hide();
+    });
+
+    // Esc to close
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && activeLink) hide();
+    });
+
+    // Reposition on scroll/resize while preview is open
     window.addEventListener('scroll', function () {
       if (activeLink) position(activeLink);
     }, { passive: true });
