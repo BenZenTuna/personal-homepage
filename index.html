@@ -3,7 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tunas.me — choose</title>
+<title>tunas.me — choose your side</title>
+<meta name="description" content="Choose your side — yin Neshe or yang Taner. A binary system, in orbit.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="tunas.me — choose your side">
+<meta property="og:description" content="Choose your side — yin Neshe or yang Taner. A binary system, in orbit.">
+<meta property="og:site_name" content="tunas.me">
+<meta property="og:image" content="/assets/yin-yang.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1920">
+<meta property="og:image:alt" content="Yin and yang — Neshe and Taner">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="tunas.me — choose your side">
+<meta name="twitter:description" content="Choose your side — yin Neshe or yang Taner. A binary system, in orbit.">
+<meta name="twitter:image" content="/assets/yin-yang.png">
+
+<link rel="icon" type="image/png" href="/assets/yin-yang.png">
+<link rel="apple-touch-icon" href="/assets/yin-yang.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -349,22 +367,82 @@
   @media (max-width: 720px) {
     html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
     #shader-canvas { position: fixed; inset: 0; height: 100vh; }
+    /* Diagonal split: Neshe in upper-right corner, Taner in lower-left,
+       separated by a thin line running from upper-left to lower-right.
+       The composition itself lets pointer events pass through so taps on
+       empty space reach the shockwave shader behind it; the orbit and
+       name children below re-enable pointer events for navigation. */
     .composition {
       position: relative;
       inset: auto;
+      display: block;
+      min-height: 100vh;
+      padding: 0;
+      transform: none !important;
+      pointer-events: none;
+    }
+    .composition::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,
+        transparent calc(50% - 0.6px),
+        rgba(243, 239, 232, 0.22) 50%,
+        transparent calc(50% + 0.6px));
+      pointer-events: none;
+    }
+    .half {
+      position: absolute;
+      width: auto;
+      min-height: auto;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
-      padding: 96px 20px 140px;
-      gap: 40px;
-      transform: none !important;
+      align-items: center;
+      gap: 6px;
     }
-    .half { padding: 0; min-height: auto; }
-    .half.L, .half.R { padding: 0; }
+    .half.L {
+      bottom: 8vh;
+      left: 6vw;
+      align-items: flex-start;
+    }
+    .half.R {
+      top: 8vh;
+      right: 6vw;
+      align-items: flex-end;
+    }
     .divider, .divider-label { display: none; }
-    .orbit { width: min(62vw, 240px); }
-    .name { font-size: 64px; }
-    .role { font-size: 10px; max-width: 280px; }
+    .orbit { width: min(63vw, 270px); }
+    /* Spin the orbit rings on mobile — cool silver around Taner (lower
+       corner), warm silver around Neshe (upper corner). Dashed borders
+       make the rotation visible. Scale is folded into the keyframes so
+       the original ring sizes (1.08x / 1.22x) are preserved. */
+    .half.L .orbit::before {
+      border: 1px dashed rgba(168, 195, 255, 0.45);
+      animation: spin-ring-1 18s linear infinite;
+    }
+    .half.L .orbit::after {
+      border: 1px dashed rgba(168, 195, 255, 0.22);
+      animation: spin-ring-2 28s linear infinite reverse;
+    }
+    .half.R .orbit::before {
+      border: 1px dashed rgba(255, 196, 154, 0.45);
+      animation: spin-ring-1 18s linear infinite reverse;
+    }
+    .half.R .orbit::after {
+      border: 1px dashed rgba(255, 196, 154, 0.22);
+      animation: spin-ring-2 28s linear infinite;
+    }
+    @keyframes spin-ring-1 { to { transform: scale(1.08) rotate(360deg); } }
+    @keyframes spin-ring-2 { to { transform: scale(1.22) rotate(360deg); } }
+    .name { font-size: 38px; margin: 4px 0 0; }
+    /* On mobile we want a compact two-portrait stack — hide the eyebrow
+       label, role description, and "Enter orbit" CTA so both halves fit
+       in one viewport. */
+    .name-eyebrow, .role, .enter { display: none; }
+    .name-block { padding: 0; text-align: center; }
+    .half.L .name-block { text-align: left; }
+    .half.R .name-block { text-align: right; }
     .top { padding: 14px 16px; position: absolute; }
     .top-right { font-size: 9px; letter-spacing: 0.15em; }
     .brand-meta { display: none; }
@@ -379,17 +457,22 @@
     .caption { display: none; }
     .coords { text-align: left; }
     .corner { display: none; }
-    .name-block { padding: 18px 24px; }
 
-    /* Shrink the tap target on mobile: only the portrait orbit and the
-       name itself should activate the link, not the whole column. Clicks
-       on children bubble through the pointer-events: none anchor so the
-       native navigation still fires. */
+    /* Shrink the tap target on mobile to just the portrait circle and
+       the name — the surrounding orbit rings stay click-through so taps
+       there reach the shader behind and trigger the shockwave effect.
+       The portrait itself is clipped to a circle so only the visible
+       disc captures pointer events, leaving the corners around it free
+       for the wave too. */
     .composition .half { pointer-events: none; }
-    .composition .half .orbit,
+    .composition .half .orbit { pointer-events: none; }
+    .composition .half .portrait,
     .composition .half .name {
       pointer-events: auto;
       cursor: pointer;
+    }
+    .composition .half .portrait {
+      clip-path: circle(50% at 50% 50%);
     }
   }
 </style>
