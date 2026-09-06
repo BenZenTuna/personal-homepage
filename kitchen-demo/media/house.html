@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home — demo</title>
+<style>
+  /* Where the "Home" panel's one link goes. On the wall this is an index page
+     of everything on the house network; here it is a placeholder listing the
+     kinds of thing such an index holds, and nothing is clickable. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 48px 24px;
+    background: #14120f; color: #ece8e0;
+    font: 400 15px/1.6 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 30px; font-weight: 500; letter-spacing: -0.6px; }
+  .lede { margin: 0 0 30px; color: #aaa392; font-size: 16px; max-width: 60ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .card {
+    background: #23211c; border: 1px solid #746a54; border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .card b { display: block; font-weight: 500; font-size: 16px; margin-bottom: 3px; }
+  .card span { color: #aaa392; font-size: 13.5px; }
+  .card em { display: block; margin-top: 8px; font-style: normal; font-size: 12px;
+             letter-spacing: 1.4px; text-transform: uppercase; color: #6f6857; }
+  footer { margin-top: 34px; padding-top: 18px; border-top: 1px solid #5f5745;
+           color: #6f6857; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Home</h1>
+  <p class="lede">The house index — one page listing every service running on the
+    home network, so nothing has to be remembered by port number. This copy is
+    part of a demo: the entries below are examples, and none of them go anywhere.</p>
+
+  <div class="grid">
+    <div class="card"><b>Home automation</b><span>Lights, sensors, scenes</span><em>example</em></div>
+    <div class="card"><b>Storage</b><span>Photographs, backups, media</span><em>example</em></div>
+    <div class="card"><b>DNS and ad filtering</b><span>Names and blocklists for the house</span><em>example</em></div>
+    <div class="card"><b>Cameras</b><span>Streams and recordings</span><em>example</em></div>
+    <div class="card"><b>Kitchen dashboard</b><span>The screen you came from</span><em>example</em></div>
+    <div class="card"><b>Metrics</b><span>Uptime, disk, temperature</span><em>example</em></div>
+  </div>
+
+  <footer>A placeholder page inside a static demo. Nothing here is connected to
+    anything.</footer>
+</main>
+</body>
+</html>

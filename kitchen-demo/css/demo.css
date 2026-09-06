@@ -1,0 +1,166 @@
+/* Everything the demo adds on top of the dashboard's own stylesheet, and
+   nothing else: app.css is a byte-for-byte copy of the one on the wall, so
+   this file is the whole visual difference between the two.
+
+   Three things live here — the looping clip that stands in for the camera
+   stream, the "Demo" chip in the header, and the card that explains what this
+   is on a first visit. */
+
+/* ---- the bird box clip ----
+   On the wall this slot holds a <kitchen-stream> element talking WebRTC to
+   go2rtc; here it is an ordinary <video> on a loop, letterboxed the same way
+   so the panel behaves identically around it. */
+.cam-video {
+  display: block; width: 100%; height: 100%;
+  object-fit: contain; background: var(--well);
+}
+
+/* ---- the header chip ----
+   Sized to its word rather than to the 46px squares beside it, and drawn in
+   the amber the photographs use, so it reads as a label on the screen rather
+   than as another control of it. */
+#demo-pill {
+  width: auto !important;
+  padding: 0 14px;
+  font-size: 14px !important;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--photos) !important;
+  border-color: color-mix(in srgb, var(--photos) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--photos) 10%, var(--panel-2)) !important;
+}
+
+/* ---- the card ----
+   A first visit lands on this and nothing else; after that the chip in the
+   header brings it back.
+
+   This card is the one thing on the page that is not part of the design, and
+   it should be read at the size it was written. app.css scales the whole body
+   — the dashboard is drawn for 1920×1080 and shrinks in steps to fit smaller
+   screens — which on a phone took this card's type down to seven pixels along
+   with everything else.
+
+   So the overlay cancels that scale for itself and its card. Inside a zoomed
+   box neither `inset: 0` nor `100vw` measures the visible viewport — both came
+   out around 40% too wide, and the card sat half off the right edge — so the
+   size is given in real pixels from `--demo-vw` / `--demo-vh`, which badge.js
+   measures off the body's own box. The dashboard behind it is untouched. */
+#demo-intro {
+  position: fixed; left: 0; top: 0; z-index: 120;
+  zoom: calc(1 / var(--z));
+  width: var(--demo-vw, 100vw);
+  height: var(--demo-vh, 100vh);
+  background: rgba(8, 7, 5, 0.82);
+  display: flex; align-items: center; justify-content: center;
+}
+#demo-intro[hidden] { display: none; }
+
+.demo-card {
+  width: min(680px, calc(var(--demo-vw, 100vw) - 32px));
+  max-height: calc(var(--demo-vh, 100vh) - 32px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+  --pad-x: 38px;
+  --pad-b: 30px;
+  padding: 34px var(--pad-x) var(--pad-b);
+}
+.demo-card h1 {
+  margin: 0 0 4px; font-size: 34px; font-weight: 500; letter-spacing: -0.8px;
+  color: var(--text);
+}
+.demo-card h1 + .demo-lede { margin-top: 10px; }
+.demo-lede { margin: 0; font-size: 17px; line-height: 1.55; color: var(--mid); }
+
+.demo-list {
+  margin: 22px 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.demo-list li {
+  font-size: 15.5px; line-height: 1.5; color: var(--mid);
+  padding-left: 18px; position: relative;
+}
+.demo-list li::before {
+  content: ''; position: absolute; left: 0; top: 9px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--photos);
+}
+/* Two photographs of the thing itself. The card describes a laptop screwed to
+   a kitchen wall and a sensor on a shelf, and a paragraph about a mounting is
+   longer than a picture of one and less convincing. They sit side by side down
+   to the width where that stops being two pictures and becomes two stamps. */
+.demo-shots {
+  margin: 22px 0 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.demo-shots img {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--edge); border-radius: 10px;
+  background: var(--panel-2, #1b1814);
+}
+.demo-shots figcaption {
+  margin-top: 7px; font-size: 12.5px; line-height: 1.45; color: var(--dim);
+}
+@media (max-width: 560px) {
+  .demo-shots { grid-template-columns: 1fr; gap: 16px; }
+}
+
+/* The card says two different things — what the wall is, and how to move
+   around a copy of it — and without a line between them the second list reads
+   as five more facts about the house. */
+.demo-head {
+  margin: 26px 0 0; font-size: 12.5px; font-weight: 500; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--dim);
+}
+.demo-head + .demo-list { margin-top: 12px; }
+
+.demo-list b { color: var(--text); font-weight: 500; }
+.demo-list i { font-style: normal; color: var(--text); }
+
+.demo-fine {
+  margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--rule-soft);
+  font-size: 13.5px; line-height: 1.5; color: var(--dim);
+}
+
+/* Said only where it is true. The dashboard is drawn for one screen size and
+   does not pretend otherwise; on a phone it is legible but tight, and saying
+   so is better than letting somebody conclude the layout is broken. */
+.demo-narrow { display: none; }
+@media (max-width: 900px) {
+  .demo-narrow {
+    display: block; margin: 20px 0 0; padding: 13px 15px;
+    background: color-mix(in srgb, var(--photos) 12%, var(--panel-2));
+    border: 1px solid color-mix(in srgb, var(--photos) 35%, transparent);
+    border-radius: var(--radius-sm);
+    font-size: 14px; line-height: 1.5; color: var(--mid);
+  }
+}
+
+/* Sticky, because on a phone the card scrolls and "Look around" was below the
+   fold: the one control that has to be found is the one that was hidden. */
+.demo-actions {
+  display: flex; gap: 12px;
+  position: sticky; bottom: calc(-1 * var(--pad-b));
+  margin: 22px calc(-1 * var(--pad-x)) calc(-1 * var(--pad-b));
+  padding: 16px var(--pad-x) var(--pad-b);
+  background: var(--panel);
+  border-top: 1px solid var(--rule-soft);
+}
+.demo-actions button {
+  min-height: var(--touch); padding: 0 26px;
+  border-radius: var(--radius-sm); font-size: 16px;
+  background: var(--text); color: var(--bg); border: 1px solid var(--text);
+}
+.demo-actions button.ghost {
+  background: transparent; color: var(--mid); border-color: var(--rule);
+}
+
+/* A phone in portrait gets the card, not the wall: the dashboard itself is
+   drawn for a 1920x1080 screen and says so rather than pretending. */
+@media (max-width: 620px) {
+  .demo-card { --pad-x: 22px; --pad-b: 22px; padding: 26px var(--pad-x) var(--pad-b); }
+  .demo-card h1 { font-size: 27px; }
+  .demo-actions { flex-direction: column; }
+}

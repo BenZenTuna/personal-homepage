@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel</title>
+<style>
+  /* A stand-in for whatever a channel's own site would put inside the TV
+     panel's frame. Entirely local: the demo contacts nothing. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #0d0c0a;
+    color: #ece8e0;
+    font: 400 15px/1.5 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px; border-bottom: 1px solid #2b2721;
+  }
+  .mark {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; font-weight: 500;
+    background: color-mix(in srgb, var(--k) 22%, #16140f);
+    border: 1px solid color-mix(in srgb, var(--k) 55%, transparent);
+    color: var(--k);
+  }
+  h1 { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -0.3px; }
+  .live {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: #e0705f;
+  }
+  .live i {
+    width: 8px; height: 8px; border-radius: 50%; background: #e0705f;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.25; } }
+  .spacer { flex: 1; }
+  .clock { font-variant-numeric: tabular-nums; color: #aaa392; font-size: 15px; }
+
+  .screen {
+    flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--k) 26%, transparent), transparent 70%),
+      linear-gradient(160deg, #14120f 0%, #0b0a08 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* A slow drift, so the frame is visibly playing something rather than
+     sitting there as a still. */
+  .screen::before {
+    content: ''; position: absolute; inset: -30%;
+    background: conic-gradient(from 0deg,
+      transparent 0deg, color-mix(in srgb, var(--k) 14%, transparent) 60deg,
+      transparent 140deg, color-mix(in srgb, var(--k) 9%, transparent) 220deg, transparent 320deg);
+    animation: spin 26s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .plate { position: relative; text-align: center; padding: 24px; }
+  .plate .big {
+    font-size: clamp(30px, 6vw, 64px); font-weight: 300; letter-spacing: -1.5px;
+    margin: 0 0 10px;
+  }
+  .plate p { margin: 0; color: #aaa392; font-size: 15px; }
+  .bars { display: flex; gap: 4px; justify-content: center; margin-top: 26px; height: 34px; }
+  .bars i {
+    width: 6px; border-radius: 3px; background: var(--k); opacity: 0.75;
+    animation: bounce 1.4s ease-in-out infinite;
+  }
+  @keyframes bounce { 0%, 100% { height: 30%; } 50% { height: 100%; } }
+
+  footer {
+    flex: 0 0 auto; border-top: 1px solid #2b2721; padding: 12px 20px;
+    display: flex; gap: 26px; overflow-x: auto; color: #aaa392; font-size: 13.5px;
+  }
+  footer b { display: block; color: #ece8e0; font-weight: 500; font-size: 14.5px; }
+  footer div { white-space: nowrap; }
+  .note {
+    padding: 10px 20px 16px; color: #6f6857; font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <span class="mark" id="mark">TV</span>
+    <h1 id="name">Channel</h1>
+    <span class="live"><i></i>Live</span>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">--:--</span>
+  </header>
+
+  <div class="screen">
+    <div class="plate">
+      <p class="big" id="big">Channel</p>
+      <p id="prog">Now playing — the evening programme</p>
+      <div class="bars" id="bars"></div>
+    </div>
+  </div>
+
+  <footer id="sched"></footer>
+  <p class="note">A placeholder page, served from this demo. In the real
+    dashboard a tile opens the channel's own site inside the panel — and the
+    ones that refuse to be framed open in a tab instead.</p>
+
+<script>
+  const p = new URLSearchParams(location.search);
+  const name = p.get('c') || 'Channel';
+  const colour = p.get('k') || '#8fc0d8';
+  document.documentElement.style.setProperty('--k', colour);
+  document.title = name;
+  document.getElementById('name').textContent = name;
+  document.getElementById('big').textContent = name;
+  document.getElementById('mark').textContent =
+    name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase();
+
+  const bars = document.getElementById('bars');
+  for (let i = 0; i < 22; i++) {
+    const b = document.createElement('i');
+    b.style.animationDelay = `${(i % 7) * 0.16}s`;
+    b.style.animationDuration = `${1.1 + (i % 5) * 0.18}s`;
+    bars.appendChild(b);
+  }
+
+  // A plausible evening, counted off the clock rather than written down, so
+  // the schedule is never yesterday's.
+  const titles = ['The evening programme', 'Around the country', 'Late edition',
+                  'Documentary hour', 'Night music', 'Repeats until morning'];
+  const sched = document.getElementById('sched');
+  const now = new Date();
+  const slot = new Date(now);
+  slot.setMinutes(now.getMinutes() < 30 ? 0 : 30, 0, 0);
+  titles.forEach((t, i) => {
+    const at = new Date(slot.getTime() + i * 30 * 60000);
+    const d = document.createElement('div');
+    d.innerHTML = `<b>${String(at.getHours()).padStart(2, '0')}:${
+      String(at.getMinutes()).padStart(2, '0')}</b>${t}`;
+    sched.appendChild(d);
+  });
+  document.getElementById('prog').textContent = `Now — ${titles[0]}`;
+
+  const tick = () => {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+  tick();
+  setInterval(tick, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kitchen wall — demo</title>
+<meta name="description" content="A browsable demo of a wall-mounted kitchen dashboard: weather, bird box, photos, lights, dinner suggestions and kitchen timers. Nothing is connected — every reading is made up.">
+<meta name="theme-color" content="#14120f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍳</text></svg>">
+<link rel="stylesheet" href="fonts/fonts.css?v=1">
+<link rel="stylesheet" href="css/app.css?v=1">
+<link rel="stylesheet" href="css/demo.css?v=1">
+</head>
+<body>
+
+<!-- The demo's fake backend. Plain scripts, so they run before the module
+     below: by the time the dashboard calls fetch() or opens its event stream,
+     both have been replaced. -->
+<script src="demo/data.js?v=1"></script>
+<script src="demo/api.js?v=1"></script>
+
+<header id="topbar">
+  <div class="hd-clock">
+    <div id="time">--:--</div>
+    <div id="date"></div>
+  </div>
+
+  <div class="hd-rule"></div>
+
+  <div class="hd-now">
+    <div id="now-icon"></div>
+    <div class="hd-now-txt">
+      <div id="now-temp">--°</div>
+      <div id="now-cond"></div>
+      <div class="hd-now-sub">
+        <span id="now-rain"></span><span id="now-city"></span><span id="now-stale"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hd-rule"></div>
+
+  <!-- Eight hours fit at a readable size; the next two days are dragged in
+       sideways with a finger (or the arrows). Tapping opens the 48-hour view. -->
+  <div class="hd-bandwrap">
+    <button class="hd-arrow prev" aria-label="earlier hours">‹</button>
+    <div id="hd-band" role="button" tabindex="0" aria-label="open the full forecast"></div>
+    <button class="hd-arrow next" aria-label="later hours">›</button>
+  </div>
+
+  <div class="hd-rule"></div>
+
+  <nav id="presets" aria-label="layout presets"></nav>
+
+  <div class="hd-tools">
+    <!-- Next to the view buttons on purpose: it arranges the view they choose. -->
+    <button id="layout-btn" class="gear" title="arrange this view"
+            aria-label="arrange this view">⚙</button>
+    <button id="meal-btn" title="meal time — dim the screen for 30 minutes"
+            aria-label="meal time">🍽</button>
+    <button id="full-btn" title="full screen" aria-label="full screen">⛶</button>
+    <!-- The one control that is not part of the real dashboard: what this is,
+         and how to put it back the way it was found. -->
+    <button id="demo-pill" title="what this is">Demo</button>
+    <div class="hd-live">
+      <span id="conn-dot"></span><span id="conn-text">Live</span>
+    </div>
+  </div>
+</header>
+
+<!-- Meal time: the screen goes black for half an hour so a lit wall does not
+     sit in the middle of dinner. Deliberately not a panel — it covers
+     everything, including a panel someone left expanded. -->
+<div id="meal-overlay" hidden>
+  <div id="meal-clock">30:00</div>
+  <div id="meal-note">Meal time</div>
+  <button id="meal-end">End</button>
+</div>
+
+<!-- Arrangements of the current view. Built by app.js; each option carries a
+     scale drawing of the layout it applies, because the words for "photos get
+     the whole width" are longer than the picture and less certain. -->
+<div id="layout-overlay" hidden>
+  <header>
+    <div>
+      <h2 id="lay-title">Arrange</h2>
+      <div class="sub" id="lay-sub"></div>
+    </div>
+    <span class="spacer"></span>
+    <button id="lay-close">Close</button>
+  </header>
+  <div id="lay-options"></div>
+</div>
+
+<main id="grid"></main>
+
+<!-- ============================ the demo's own bits ==================== -->
+
+<div id="demo-intro" hidden>
+  <div class="demo-card">
+    <h1>Kitchen wall</h1>
+    <p class="demo-lede">An old laptop screwed flat to the kitchen wall, lid
+      open, one cable out of the corner, running all day. It turns the house
+      lights on, works out what is for dinner, pulls ten years of photographs
+      off the NAS in the cupboard, and watches the birds nesting on the
+      balcony. This is that same
+      interface with a made-up server behind it — every reading on the page is
+      invented, and nothing here reaches a house.</p>
+
+    <figure class="demo-shots">
+      <div>
+        <img src="media/wall-mounted.jpg?v=1" width="900" height="506" loading="lazy"
+             alt="A laptop screwed flat to a red kitchen wall, lid open, running the dashboard.">
+        <figcaption>The laptop itself, screwed flat to the wall with its lid open
+          and one cable out of the top corner. The blurred panel is the
+          household's own calendar.</figcaption>
+      </div>
+      <div>
+        <img src="media/hue-sensor.jpg?v=1" width="900" height="506" loading="lazy"
+             alt="A Hue motion sensor on a kitchen shelf, lit pink by the room's lights.">
+        <figcaption>The Hue motion sensor on the shelf by the door — what tells
+          the server somebody has walked into the kitchen, and wakes the
+          screen.</figcaption>
+      </div>
+    </figure>
+
+    <ul class="demo-list">
+      <li><b>The lights, from the wall.</b> Every room the house has a bulb in,
+        through Home Assistant and the Hue bridge — one tap a room, one tap the
+        lot — so nobody has to find a phone and wait for an app while carrying
+        a hot pan.</li>
+      <li><b>Dinner, worked out rather than looked up.</b> An AI agent reads the
+        shopping list the house sends it, so it knows roughly what is in the
+        cupboards, and suggests things that can be cooked tonight from what is
+        already there. Choose one and it lays the cooking out as steps, one at a
+        time, big enough to read from across the kitchen with both hands
+        full.</li>
+      <li><b>It sleeps when the kitchen is empty.</b> The wall is a Home
+        Assistant client like any other: a Hue motion sensor sees somebody walk
+        in and the screen comes back, and when the room has been still a while
+        it goes dark. A lit screen nobody is standing at is a lamp pointed at
+        the ceiling.</li>
+      <li><b>Everything the house has ever photographed.</b> The pictures and
+        videos live on the NAS in the cupboard, and the wall reaches into them
+        all day — a few hundred pulled across at a time and shown at random, so
+        a decade of holidays and small children keeps surfacing between the
+        forecast and the shopping list. The <b>♥</b> keeps one.</li>
+      <li><b>The birds on the balcony.</b> A camera inside the nest box out
+        there, streamed to the panel. The clip looping in this demo is not that
+        stream: it is AI-generated, a stand-in for what the box will show when
+        the new nesting season comes round.</li>
+    </ul>
+
+    <p class="demo-head">Looking around this copy</p>
+
+    <ul class="demo-list">
+      <li><b>Six views</b> along the top — Everything, Cooking, House, Photos,
+        Birds, TV — and the gear beside them rearranges the one you are on.</li>
+      <li><b>Everything is touch-first.</b> Nothing is smaller than a fingertip
+        and there are no hover states. Any panel takes the whole screen with
+        <b>⤢</b>, and carries the clock, the weather and the views up with it.</li>
+      <li><b>Tap the temperature</b> for the week, <b>the hourly strip</b> for
+        the next two days, <b>the clock</b> for timers and world clocks.</li>
+      <li><b>It answers.</b> Lights toggle, dinners can be chosen, timers run,
+        ingredients tick off onto a shopping list, and a kept photograph stays
+        kept — all of it held in your browser and thrown away by <i>Reset</i>.</li>
+    </ul>
+
+    <p class="demo-narrow">You are on a small screen, and this is drawn for a
+      1920×1080 wall. It still works — turn the phone sideways, or open it on a
+      laptop to see it at the size it was designed for.</p>
+
+    <p class="demo-fine">The photographs are the house's own; the bird box clip
+      is AI-generated. Everything else — the weather, the rooms, the dinners,
+      the events, the channels — is invented. No live data, no accounts, nothing
+      leaves this page.</p>
+
+    <div class="demo-actions">
+      <button id="demo-go">Look around</button>
+      <button id="demo-reset" class="ghost">Reset the demo</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/app.js?v=1"></script>
+<script src="demo/badge.js?v=1"></script>
+</body>
+</html>

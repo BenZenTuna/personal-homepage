@@ -466,6 +466,16 @@
     color: var(--fg-dim);
     z-index: 3; pointer-events: none;
   }
+  /* A gallery stack runs its screenshots to the card's top edge, so the ribbon
+     lands on the picture rather than on the card. This shades the corner
+     underneath it — soft enough to read as a vignette, not a box. The cards
+     with a single letterboxed image keep the bare ribbon they already had. */
+  .project:has(.project-gallery-stack) .project-ribbon::before {
+    content: ''; position: absolute; top: -8px; left: -8px;
+    width: 420px; height: 150px; z-index: -1;
+    background: radial-gradient(420px 150px at 0 0,
+      rgba(6,8,14,0.96) 0%, rgba(6,8,14,0.92) 66%, rgba(6,8,14,0) 100%);
+  }
   .project-ribbon .num { color: var(--accent); opacity: 0.85; }
   .project-ribbon .sep { color: var(--fg-faint); }
   .project-ribbon .status {
@@ -677,6 +687,9 @@
   .project-gallery-stack .project-media img { transition: transform 600ms ease; }
   .project-gallery .project-media:hover img,
   .project-gallery-stack .project-media:hover img { transform: scale(1.03); }
+  /* Screenshots are cropped from the top so the app's header survives; a
+     photograph wants its subject kept, so centre that crop instead. */
+  .project-media.is-photo img { object-position: center center; }
 
   /* Lightbox */
   .lightbox {
@@ -1471,7 +1484,7 @@
           <p class="code-stat-label">Public<br>repos</p>
         </div>
         <div class="code-stat">
-          <p class="code-stat-num">03</p>
+          <p class="code-stat-num">04</p>
           <p class="code-stat-label">Live<br>shipped</p>
         </div>
         <div class="code-stat">
@@ -1612,6 +1625,46 @@
         <span class="stack-tag">Claude Code</span>
         <span class="stack-sep">·</span>
         <span class="stack-tag">OpenClaw Agent</span>
+      </div>
+    </article>
+
+    <article class="project is-side">
+      <div class="project-ribbon">
+        <span class="num">04</span>
+        <span class="sep">/</span>
+        <span>side project</span>
+        <span class="sep">&middot;</span>
+        <span class="status live">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>live</span>
+        </span>
+      </div>
+
+      <div class="project-hero">
+        <div class="project-gallery-stack">
+          <div class="project-media" data-link="/kitchen-demo/" role="link" tabindex="0" aria-label="Open the Kitchen wall demo"><img src="/assets/kitchen-wall-01.jpg" alt="Kitchen wall &mdash; the dashboard: clock, forecast, bird box, photos and dinner" loading="lazy" decoding="async"></div>
+          <div class="project-media is-photo" data-link="/kitchen-demo/" role="link" tabindex="0" aria-label="Open the Kitchen wall demo"><img src="/assets/kitchen-wall-02.jpg" alt="The laptop itself, screwed flat to the kitchen wall with its lid open" loading="lazy" decoding="async"></div>
+        </div>
+        <div class="project-content">
+          <a class="project-title-link" href="/kitchen-demo/" target="_blank" rel="noopener">
+            <h3 class="project-title">Kitchen wall</h3>
+          </a>
+          <p class="project-headline">An old laptop screwed flat to the kitchen wall, running all day &mdash; it turns the house lights on, works out dinner from what&rsquo;s already in the cupboards, and watches the birds nesting on the balcony.</p>
+          <div class="project-ctas">
+            <a class="project-cta" href="/kitchen-demo/" target="_blank" rel="noopener">
+              <span>try the demo</span>
+              <span class="arrow">&#8599;</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-stack">
+        <span class="stack-key">built with</span>
+        <span class="stack-sep">&middot;</span>
+        <span class="stack-tag">Claude Code</span>
+        <span class="stack-sep">&middot;</span>
+        <span class="stack-tag">Home Assistant</span>
       </div>
     </article>
   </section>
