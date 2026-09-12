@@ -1,8 +1,17 @@
 // Cooking: the dinners the agent suggests each day — up to three vegetarian
 // and three not — with per-ingredient have/don't-have ticks, a cook mode whose
-// steps can start the kitchen timers, and the shopping list and pantry behind
-// two header buttons. The backend (backend/app/cooking.py) owns all four
-// documents; this panel and the Telegram agent are both just clients of it.
+// steps can start the kitchen timers, and the week, the shopping list and the
+// pantry behind three header buttons. The backend (backend/app/cooking.py and
+// cookbook.py) owns all the documents; this panel and the agent are both just
+// clients of it.
+//
+// The Week is the plan and the two columns are today's page of it: the server
+// copies today's entry into the suggestions just after midnight, so nothing
+// below has to know a week exists — the cards, the choosing, the ticks and the
+// list work exactly as they did. What the week view adds is the two things a
+// day could never answer. What are we eating on Thursday, and did we like what
+// we ate on Monday: a dinner used to be rateable only while its card was still
+// on the wall, which is to say almost never.
 //
 // Two columns, one per kind, and each column is a swipe: the card stays the
 // size it was when there was only one suggestion, and the others sit beside it
@@ -25,6 +34,27 @@ const KINDS = ['veg', 'normal'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/* A plan's "2026-09-14" as a date in this kitchen, not in UTC. new Date(iso)
+   reads a bare date as midnight UTC, and an hour west of Greenwich that is the
+   evening before — the wall would call Monday's dinner Sunday's. */
+function localDate(iso) {
+  const [y, m, d] = String(iso || '').split('-').map(Number);
+  return (y && m && d) ? new Date(y, m - 1, d) : null;
+}
+
+/* en-GB, named rather than left to the browser, because this panel's dates sit
+   under a header that is already "Saturday 12 September" (app.js) — and
+   because the wall and the laptop reading it must not disagree about which
+   way round a date goes. */
+const dayShort = (iso) =>
+  localDate(iso)?.toLocaleDateString('en-GB', { weekday: 'short' }) || '';
+const dayNum = (iso) =>
+  localDate(iso)?.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) || '';
+const dayLong = (iso) => localDate(iso)?.toLocaleDateString('en-GB',
+  { weekday: 'long', day: 'numeric', month: 'long' }) || String(iso || '');
+
+const IMG = (ref) => `/api/cooking/images/${ref}`;
+
 /* Pantry rows show their age, because "mushrooms · 3 w" answers the question
    a pantry list is actually asked: is that still good? */
 function age(added) {
@@ -46,15 +76,18 @@ export default {
     this.sugg = null;       // decorated suggestions doc, or null before load
     this.shopping = null;
     this.pantry = null;
+    this.week = null;       // the plan, or null where the backend has no week
     this.missing = false;   // backend has no /api/cooking yet (older deploy)
-    this.view = 'tonight';  // tonight | cook | shopping | pantry
+    this.view = 'tonight';  // tonight | cook | week | day | shopping | pantry
     this.cookId = null;
+    this.cookBack = 'tonight';
+    this.dayDate = null;
     this.compact = true;
     this.expanded = false;
     // Same dirty/pending dance as timers.js, per document: our own save's SSE
     // echo must not be mistaken for news, and a genuinely newer broadcast must
     // not land while an optimistic change is still waiting for its ack.
-    this.dirty = { shopping: false, pantry: false, sugg: false };
+    this.dirty = { shopping: false, pantry: false, sugg: false, week: false };
     this.pending = {};
     this.seq = { shopping: 0, pantry: 0 };
     // Which suggestion each column is showing. Kept server-side with the rest
@@ -64,12 +97,16 @@ export default {
     const saved = ctx.uiState?.cook_pick || {};
     this.pick = { veg: Number(saved.veg) || 0, normal: Number(saved.normal) || 0 };
 
+    // Week first: it is about dinners, like the view behind it, and the other
+    // two are the errands. Nearest the panel's own subject, furthest from ⤢.
+    this.btnWeek = ctx.addHeaderButton(this.id, 'Week', () => this.open('week'));
     this.btnList = ctx.addHeaderButton(this.id, 'List', () => this.open('shopping'));
     this.btnPantry = ctx.addHeaderButton(this.id, 'Pantry', () => this.open('pantry'));
 
     ctx.bus.on('cooking_suggestions', (doc) => this.absorb('sugg', doc));
     ctx.bus.on('cooking_shopping', (doc) => this.absorb('shopping', doc));
     ctx.bus.on('cooking_pantry', (doc) => this.absorb('pantry', doc));
+    ctx.bus.on('cooking_week', (doc) => this.absorb('week', doc));
 
     this.ro = new ResizeObserver(() => this.fit());
     this.ro.observe(body);
@@ -82,10 +119,14 @@ export default {
   async load() {
     clearTimeout(this._retry);
     try {
-      const [s, sh, p] = await Promise.all([
+      const [s, sh, p, w] = await Promise.all([
         fetch('/api/cooking/suggestions'),
         fetch('/api/cooking/shopping'),
         fetch('/api/cooking/pantry'),
+        // The week arrived later than the rest of this panel, and a frontend
+        // deploy does not rebuild the backend: a 404 here means "this server
+        // has no week yet", which is a missing button, not a missing panel.
+        fetch('/api/cooking/week').catch(() => null),
       ]);
       // 404 is "not deployed yet", never an answer: a plain ./sync.sh pushes
       // this file without rebuilding the backend it talks to.
@@ -93,6 +134,7 @@ export default {
       this.sugg = await s.json();
       this.shopping = await sh.json();
       this.pantry = await p.json();
+      this.week = w && w.ok ? await w.json() : null;
       this.missing = false;
     } catch {
       this.missing = this.sugg === null;
@@ -198,7 +240,43 @@ export default {
     return rs[i];
   },
 
-  byId(id) { return (this.sugg?.recipes || []).find((r) => r.id === id); },
+  /* Any dinner this panel can show, wherever it is written down: today's
+     suggestions first, then the plan. Steps opened from Thursday has to find
+     Thursday's recipe, and Thursday is not in the suggestions document. */
+  byId(id) {
+    const tonight = (this.sugg?.recipes || []).find((r) => r.id === id);
+    if (tonight) return tonight;
+    for (const d of this.week?.days || []) {
+      for (const k of KINDS) {
+        if (d[k]?.id === id) return d[k];
+        const alt = (d.alternates?.[k] || []).find((a) => a.id === id);
+        if (alt) return alt;
+      }
+    }
+    return null;
+  },
+
+  dayOf(date) { return (this.week?.days || []).find((d) => d.date === date) || null; },
+
+  /* What putting the week on the list would add — the same arithmetic the
+     server does, mirrored here only so the button can say the number before
+     anybody presses it. Never stored: the moment it is kept it is wrong. */
+  weekNeeds() {
+    const pantry = new Set((this.pantry?.items || []).map((i) => i.name));
+    const listed = this.listed();
+    const names = new Set();
+    for (const d of this.week?.days || []) {
+      if (d.date < (this.week.today || '')) continue;
+      for (const k of KINDS) {
+        for (const ing of d[k]?.ingredients || []) {
+          if (!ing.have && !pantry.has(ing.name) && !listed.has(ing.name)) {
+            names.add(ing.name);
+          }
+        }
+      }
+    }
+    return names.size;
+  },
 
   toBuy() { return (this.shopping?.items || []).filter((i) => !i.checked); },
 
@@ -214,6 +292,7 @@ export default {
   render() {
     const n = this.toBuy().length;
     this.ctx.setMeta(this.id, n ? `${n} to buy` : '');
+    this.btnWeek?.classList.toggle('on', this.view === 'week' || this.view === 'day');
     this.btnList?.classList.toggle('on', this.view === 'shopping');
     this.btnPantry?.classList.toggle('on', this.view === 'pantry');
 
@@ -227,6 +306,8 @@ export default {
 
     if (this.view === 'shopping') return this.renderShopping();
     if (this.view === 'pantry') return this.renderPantry();
+    if (this.view === 'week') return this.renderWeek();
+    if (this.view === 'day' && this.dayOf(this.dayDate)) return this.renderDay();
     if (this.view === 'cook' && this.byId(this.cookId)) return this.renderCook();
     this.view = 'tonight';
     if (this.compact) return this.renderCompact();
@@ -290,7 +371,14 @@ export default {
     }
   },
 
-  card(r, listed, chosen) {
+  /* One dinner. `opts.readonly` is a day of the plan that is not today: the
+     ticks and the decision belong to the day being cooked, and the server
+     would refuse them anyway — the ingredient tick addresses a recipe in
+     today's suggestions, and Thursday's is not there. Steps still works,
+     because reading Thursday's recipe on Wednesday evening is exactly what
+     somebody opening Thursday wants. */
+  card(r, listed, chosen, opts = {}) {
+    const ro = !!opts.readonly;
     const missing = r.ingredients.filter((i) => !i.have);
     const facts = [r.note, r.time_min && `${r.time_min} min`,
                    r.servings && `${r.servings} servings`].filter(Boolean);
@@ -298,30 +386,60 @@ export default {
     // this dinner would cost you in shopping, after one it says the list has
     // already been told.
     const line = !missing.length ? 'everything is at home'
+      : ro ? `${missing.length} to buy`
       : chosen ? `${missing.length} on the shopping list`
       : `${missing.length} to buy if you pick this`;
+    const glyph = (i) => `<span class="ck-glyph">${i.have ? '✓' : '＋'}</span>
+      <span class="ck-iname">${esc(i.name)}</span>
+      ${!i.have && listed.has(i.name) ? '<span class="ck-tag">on the list</span>' : ''}
+      <span class="ck-qty">${esc(i.qty)}</span>`;
     return `
       <div class="ck-card${chosen ? ' on' : ''}" data-id="${esc(r.id)}">
         <div class="kicker${r.kind === 'veg' ? '' : ' alt'}">${KIND_LABEL[r.kind]}${
           chosen ? ' · cooking this' : ''}</div>
         <div class="ck-title">${esc(r.title)}</div>
         <div class="ck-note">${esc(facts.join(' · '))}</div>
-        <div class="ck-ings">${r.ingredients.map((i, idx) => `
-          <button class="ck-ing${i.have ? '' : ' need'}" data-i="${idx}">
-            <span class="ck-glyph">${i.have ? '✓' : '＋'}</span>
-            <span class="ck-iname">${esc(i.name)}</span>
-            ${!i.have && listed.has(i.name) ? '<span class="ck-tag">on the list</span>' : ''}
-            <span class="ck-qty">${esc(i.qty)}</span>
-          </button>`).join('')}</div>
+        ${r.image ? `<img class="ck-pic" src="${esc(IMG(r.image))}" alt="">` : ''}
+        <div class="ck-ings">${r.ingredients.map((i, idx) => ro
+          ? `<div class="ck-ing static${i.have ? '' : ' need'}">${glyph(i)}</div>`
+          : `<button class="ck-ing${i.have ? '' : ' need'}" data-i="${idx}">${
+              glyph(i)}</button>`).join('')}</div>
         <div class="ck-needline${missing.length ? '' : ' ok'}">${line}</div>
         <div class="ck-actions">
-          <button class="ck-choose${chosen ? ' on' : ''}">${
-            chosen ? '✓ Cooking this' : 'Cook this one'}</button>
+          ${ro ? '' : `<button class="ck-choose${chosen ? ' on' : ''}">${
+            chosen ? '✓ Cooking this' : 'Cook this one'}</button>`}
           <button class="ck-cookbtn">Steps</button>
+          ${ro ? '' : `
           <button class="ck-rate${r.rating === 1 ? ' on up' : ''}" data-r="1">👍</button>
-          <button class="ck-rate${r.rating === -1 ? ' on down' : ''}" data-r="-1">👎</button>
+          <button class="ck-rate${r.rating === -1 ? ' on down' : ''}" data-r="-1">👎</button>`}
         </div>
       </div>`;
+  },
+
+  /* A recipe's picture is the one thing on these cards that can be missing
+     without anybody having done anything wrong — a file deleted, a week
+     planned against a picture that never uploaded. An empty frame says the
+     dashboard is broken; no frame says nothing, which is the truth. */
+  wirePictures() {
+    this.body.querySelectorAll('.ck-pic, .wk-thumb, .ck-source').forEach((img) => {
+      img.onerror = () => img.remove();
+    });
+  },
+
+  /* "Stale" covers two very different situations and the panel used to say the
+     same sentence for both. One day old is last night's dinner still sitting
+     there in the morning. Eleven days old — which is what it actually said for
+     eleven days — means nobody has planned anything since, and a banner that
+     calls that "yesterday's" is the dashboard lying about its own age. */
+  staleWords() {
+    const n = this.sugg?.age_days;
+    const days = this.week?.days || [];
+    const last = days.length ? days[days.length - 1].date : null;
+    const plan = last && !this.week.has_today
+      ? ` · the plan runs to ${dayLong(last)}` : '';
+    if (n === 1) return `yesterday's suggestions — nothing written for today yet${plan}`;
+    if (!n || n < 0) return `these suggestions are not today's${plan}`;
+    return `suggestions from ${dayLong(this.sugg.date)}, ${n} days ago${plan}`;
   },
 
   renderTonight() {
@@ -348,18 +466,18 @@ export default {
         </div>`;
     };
     this.body.innerHTML = `<div class="ck-wrap">
-      ${this.sugg.stale ? `<div class="ck-stale">yesterday's suggestions — the
-        agent has not written today's yet</div>` : ''}
+      ${this.sugg.stale ? `<div class="ck-stale">${esc(this.staleWords())}</div>` : ''}
       <div class="ck-cards">${KINDS.map(column).join('')}</div></div>`;
+    this.wirePictures();
 
     // Wired to ids and indexes, never to objects: every save comes back over
     // SSE as a whole new doc, and a handler holding the old one edits an orphan.
     this.body.querySelectorAll('.ck-card').forEach((el) => {
       const id = el.dataset.id;
-      el.querySelectorAll('.ck-ing').forEach((btn) =>
+      el.querySelectorAll('button.ck-ing').forEach((btn) =>
         this.wireTap(btn, () => this.tick(id, Number(btn.dataset.i))));
       this.wireTap(el.querySelector('.ck-cookbtn'), () => {
-        this.cookId = id; this.view = 'cook'; this.render();
+        this.cookId = id; this.cookBack = 'tonight'; this.view = 'cook'; this.render();
       });
       this.wireTap(el.querySelector('.ck-choose'), () => this.choose(id));
       el.querySelectorAll('.ck-rate').forEach((btn) =>
@@ -408,6 +526,156 @@ export default {
     }));
   },
 
+  /* The week, as rows rather than as seven columns.
+     Seven columns on this panel is 170px each, and at 170px every dinner in
+     the house ends in an ellipsis — the same arithmetic that made the strip
+     under the photographs stack its two dishes instead of setting them side by
+     side. A row per day gives each dinner half the panel's width, which is
+     enough for the longest title anybody writes, and seven rows is a shape the
+     eye reads as a week without being told. */
+  renderWeek() {
+    const wk = this.week;
+    if (!wk?.days?.length) {
+      this.body.innerHTML = `<div class="ck-wrap">
+        ${this.listBar('The week', 'nothing planned')}
+        <div class="placeholder">No week planned yet — hand Claude the
+          photographs from the kitchen and ask for one</div></div>`;
+      this.wireListBar();
+      return;
+    }
+    const today = wk.today;
+    const need = this.weekNeeds();
+
+    const dish = (d, kind) => {
+      const r = d[kind];
+      if (!r) return '';
+      const alts = (d.alternates?.[kind] || []).map((a) => a.title).filter(Boolean);
+      const rating = d.rating?.[kind] ?? null;
+      const meta = [r.time_min && `${r.time_min} min`,
+                    alts.length && `or ${alts.join(' · ')}`].filter(Boolean).join(' · ');
+      return `
+        <div class="wk-dish">
+          <button class="wk-open" data-date="${esc(d.date)}">
+            ${r.image ? `<img class="wk-thumb" src="${esc(IMG(r.image))}" alt="">` : ''}
+            <span class="wk-text">
+              <span class="kicker${kind === 'veg' ? '' : ' alt'}">${KIND_LABEL[kind]}</span>
+              <span class="wk-name">${esc(r.title)}</span>
+              ${meta ? `<span class="wk-meta">${esc(meta)}</span>` : ''}
+            </span>
+          </button>
+          ${d.date <= today ? `
+            <button class="ck-rate${rating === 1 ? ' on up' : ''}" data-date="${
+              esc(d.date)}" data-kind="${kind}" data-r="1">👍</button>
+            <button class="ck-rate${rating === -1 ? ' on down' : ''}" data-date="${
+              esc(d.date)}" data-kind="${kind}" data-r="-1">👎</button>` : ''}
+        </div>`;
+    };
+
+    this.body.innerHTML = `<div class="ck-wrap">
+      ${this.listBar('The week', wk.has_today ? `${wk.days.length} days planned`
+        : `planned to ${dayNum(wk.days[wk.days.length - 1].date)} — not today`)}
+      <div class="ck-listwrap wk-list">${wk.days.map((d) => `
+        <div class="wk-row${d.date === today ? ' now' : ''}${
+          d.date < today ? ' past' : ''}">
+          <div class="wk-when">
+            <b>${esc(dayShort(d.date))}</b>
+            <span>${esc(dayNum(d.date))}</span>
+            ${d.date === today ? '<span class="wk-today">today</span>' : ''}
+          </div>
+          <div class="wk-body">
+            <div class="wk-dishes">${dish(d, 'veg')}${dish(d, 'normal')}</div>
+            ${d.note ? `<div class="wk-daynote">${esc(d.note)}</div>` : ''}
+          </div>
+        </div>`).join('')}</div>
+      <div class="ck-foot">
+        <button class="ck-shop${need ? '' : ' off'}">${need
+          ? `＋ Put ${need} thing${need === 1 ? '' : 's'} on the shopping list`
+          : 'Nothing to add — the week is at home or on the list'}</button>
+      </div></div>`;
+
+    this.wireListBar();
+    this.wirePictures();
+    this.body.querySelectorAll('.wk-open').forEach((btn) =>
+      this.wireTap(btn, () => this.openDay(btn.dataset.date)));
+    this.body.querySelectorAll('.wk-dish .ck-rate').forEach((btn) =>
+      this.wireTap(btn, () => this.rateDay(btn.dataset.date, btn.dataset.kind,
+                                           Number(btn.dataset.r))));
+    const shop = this.body.querySelector('.ck-shop');
+    this.wireTap(shop, () => this.shopWeek(shop));
+  },
+
+  /* Today is not a page of the plan — it is the panel's own two columns, with
+     the ticks and the decision on them. Sending the finger there rather than
+     to a read-only copy of the same two dinners is the difference between
+     looking at the week and using it. */
+  openDay(date) {
+    if (!date) return;
+    if (date === this.week?.today) { this.view = 'tonight'; this.render(); return; }
+    this.dayDate = date;
+    this.view = 'day';
+    this.render();
+  },
+
+  renderDay() {
+    const d = this.dayOf(this.dayDate);
+    const listed = this.listed();
+    this.body.innerHTML = `<div class="ck-wrap">
+      ${this.listBar(dayLong(d.date), d.note || '', '‹ Week')}
+      <div class="ck-cards">${KINDS.map((k) => {
+        const alts = (d.alternates?.[k] || []).map((a) => a.title).filter(Boolean);
+        return `
+        <div class="ck-col">
+          <div class="ck-still">${this.card(d[k], listed, false, { readonly: true })}</div>
+          ${alts.length ? `<div class="ck-alts">or ${esc(alts.join(' · '))}</div>` : ''}
+        </div>`;
+      }).join('')}</div></div>`;
+
+    this.wireListBar('week');
+    this.wirePictures();
+    this.body.querySelectorAll('.ck-card').forEach((el) => {
+      const id = el.dataset.id;
+      this.wireTap(el.querySelector('.ck-cookbtn'), () => {
+        this.cookId = id; this.cookBack = 'day'; this.view = 'cook'; this.render();
+      });
+    });
+  },
+
+  /* Rating a day is the half of the loop that was missing: a dinner could only
+     be rated while its card was on the wall, so anything eaten after the cards
+     turned over — which is most dinners — was never rated, and the history the
+     next plan is supposed to learn from stayed empty. */
+  rateDay(date, kind, rating) {
+    const day = this.dayOf(date);
+    if (!day) return;
+    const now = day.rating?.[kind] ?? null;
+    const next = now === rating ? null : rating;   // second tap takes it back
+    day.rating = { ...(day.rating || {}), [kind]: next };
+    this.dirty.week = true;
+    this.post('/api/cooking/rate', { date, kind, rating: next });
+    setTimeout(() => { this.dirty.week = false; }, 400);
+    this.render();
+  },
+
+  /* The week's shopping, in one stroke, because the alternative is ticking
+     thirty ingredients across seven cards. The server decides what is actually
+     missing — this only asks and then says what happened. */
+  async shopWeek(btn) {
+    if (!btn) return;
+    const was = btn.textContent;
+    btn.textContent = 'adding…';
+    this.dirty.shopping = true;
+    try {
+      const res = await fetch('/api/cooking/week/shop', { method: 'POST' });
+      const out = await res.json();
+      this.shopping = out.shopping || this.shopping;
+      btn.textContent = out.added?.length
+        ? `✓ ${out.added.length} added to the list` : '✓ nothing was missing';
+    } catch {
+      btn.textContent = was;
+    }
+    setTimeout(() => { this.dirty.shopping = false; this.render(); }, 1800);
+  },
+
   renderCook() {
     const r = this.byId(this.cookId);
     this.body.innerHTML = `
@@ -422,18 +690,27 @@ export default {
         <div class="ck-chips">${r.ingredients.map((i) => `
           <span class="ck-chip${i.have ? '' : ' need'}">${esc(i.name)}${
             i.qty ? ` <em>${esc(i.qty)}</em>` : ''}</span>`).join('')}</div>
-        <ol class="ck-steps">${r.steps.map((s, idx) => `
-          <li>
-            <span class="ck-stepnum">${idx + 1}</span>
-            <span class="ck-steptext">${esc(s.text)}</span>
-            ${s.timer_min ? `<button class="ck-timer" data-min="${s.timer_min}">
-              ⏱ ${s.timer_min} min</button>` : ''}
-          </li>`).join('')}
-          ${r.steps.length ? '' : '<li><span class="ck-steptext">No steps — the agent kept this one simple.</span></li>'}
-        </ol>
+        <div class="ck-cookbody">
+          <ol class="ck-steps">${r.steps.map((s, idx) => `
+            <li>
+              <span class="ck-stepnum">${idx + 1}</span>
+              <span class="ck-steptext">${esc(s.text)}</span>
+              ${s.timer_min ? `<button class="ck-timer" data-min="${s.timer_min}">
+                ⏱ ${s.timer_min} min</button>` : ''}
+            </li>`).join('')}
+            ${r.steps.length ? '' : '<li><span class="ck-steptext">No steps — the agent kept this one simple.</span></li>'}
+          </ol>
+          ${/* The page it was read off, beside the steps it was read into. A
+                recipe photographed out of a book loses whatever the reader did
+                not think to write down, and the cook is the one who finds out.
+                Having the original here costs a column and settles it. */
+            r.source_image ? `<img class="ck-source" src="${esc(IMG(r.source_image))}"
+              alt="the page this recipe was read from">` : ''}
+        </div>
       </div>`;
+    this.wirePictures();
     this.wireTap(this.body.querySelector('.ck-back'), () => {
-      this.view = 'tonight'; this.render();
+      this.view = this.cookBack || 'tonight'; this.render();
     });
     this.body.querySelectorAll('.ck-timer').forEach((btn) =>
       this.wireTap(btn, () => this.startTimer(Number(btn.dataset.min), r.title, btn)));
@@ -444,17 +721,17 @@ export default {
      pressed a second time, but a lit button is a state, not a signpost: from
      inside a shopping list there was nothing on screen that said "dinners are
      that way", and a wall screen is read by people who did not build it. */
-  listBar(title, note) {
+  listBar(title, note, back = '‹ Dinners') {
     return `<div class="ck-listbar">
-      <button class="ck-back">‹ Dinners</button>
+      <button class="ck-back">${esc(back)}</button>
       <span class="ck-listtitle">${esc(title)}</span>
       <span class="ck-listnote">${esc(note || '')}</span>
     </div>`;
   },
 
-  wireListBar() {
+  wireListBar(to = 'tonight') {
     const back = this.body.querySelector('.ck-back');
-    if (back) this.wireTap(back, () => { this.view = 'tonight'; this.render(); });
+    if (back) this.wireTap(back, () => { this.view = to; this.render(); });
   },
 
   renderShopping() {

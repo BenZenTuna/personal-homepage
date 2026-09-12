@@ -271,6 +271,45 @@ export default {
   /* Only the rooms that are already lit — see targets(). */
   litTargets() { return this.targets('dim'); },
 
+  /* What one room's slider should read. A lamp that is on but has never
+     reported a brightness is at full, which is what "on" means to a bulb that
+     cannot dim itself down. */
+  briOf(item) {
+    const st = this.states[item.entity] || {};
+    const b = st.a && st.a.brightness;
+    return b ? Math.max(1, Math.round((b / 255) * 100)) : 100;
+  },
+
+  /* One room, dragged. The same throttle push() keeps, but per entity rather
+     than for whichever room the sheet has open: nine tiles share this panel and
+     one shared timer would mean the last room touched swallowed the others'
+     commands. A fixed rate is right here in a way it is not for the whole
+     house — one room is one command's worth of work whatever else is lit, which
+     is the whole reason houseDim() has to pace itself and this does not. */
+  roomDim(item, pct, now = false) {
+    const id = item.entity;
+    this._rooms ||= {};
+    const st = (this._rooms[id] ||= { pending: null, timer: null, sentAt: 0 });
+    st.pending = pct;
+    const send = () => {
+      st.timer = null;
+      const value = st.pending;
+      st.pending = null;
+      if (value == null) return;
+      st.sentAt = Date.now();
+      // Paint the answer before it arrives, exactly as every other control in
+      // this panel does; SSE corrects us a moment later either way.
+      this.expect([id], true, value);
+      this.call(id, 'turn_on',
+        { brightness_pct: value, transition: now ? RELEASE_MS : PUSH_MS / 1000 });
+    };
+    if (now) { clearTimeout(st.timer); st.timer = null; return send(); }
+    if (st.timer) return;                    // one is already on its way
+    const since = st.sentAt ? Date.now() - st.sentAt : Infinity;
+    if (since >= PUSH_MS) send();
+    else st.timer = setTimeout(send, PUSH_MS - since);
+  },
+
   /* The house dimmer, paced by what the house can actually keep up with.
 
      A fixed interval was the wrong shape for this. One room lit was fine; each
@@ -560,6 +599,12 @@ export default {
                        title="${name}" aria-label="${this.esc(item.label)} ${name}"
                        style="--sw:hsl(${h} ${s}% 60%)"></button>`).join('')}
             </div>` : ''}
+            ${caps ? `<div class="tile-bri">
+              <input class="ls-slider tile-bri-in" type="range" min="1" max="100" step="1"
+                     value="${this.briOf(item)}" data-i="${i}"
+                     aria-label="${this.esc(item.label)} brightness">
+              <span class="tile-bri-val">${this.briOf(item)}%</span>
+            </div>` : ''}
           </div>`;
         }).join('')}
         ${climate.map((c) => this.reading(c)).join('')}
@@ -597,6 +642,28 @@ export default {
           { hs_color: [Number(sw.dataset.h), Number(sw.dataset.s)] });
       };
     });
+    /* One room's brightness, on the tile itself. The house has had a dimmer
+       along the bottom since the beginning and every room has had one behind
+       its gear; what was missing was the obvious one — the room you are
+       standing in, on the tile with its name on it, without a trip through a
+       sheet to turn the kitchen down while something is in the oven.
+       `_dragId` is what keeps the state arriving over SSE from yanking the
+       slider out from under the finger holding it; see paint(). */
+    this.tiles.querySelectorAll('input.tile-bri-in').forEach((sl) => {
+      const item = lights[Number(sl.dataset.i)];
+      const val = sl.parentElement.querySelector('.tile-bri-val');
+      sl.oninput = () => {
+        this._dragId = item.entity;
+        val.textContent = `${sl.value}%`;
+        this.roomDim(item, Number(sl.value));
+      };
+      // The finger coming off is the value actually asked for — and both
+      // events raise it, because `change` does not fire when a drag ends where
+      // it began, and a pointer released off the edge is still a release.
+      const done = () => { this._dragId = null; this.roomDim(item, Number(sl.value), true); };
+      sl.onchange = done;
+      ['pointerup', 'pointercancel'].forEach((e) => sl.addEventListener(e, done));
+    });
   },
 
   /* Values only: no markup is written and no handler is replaced, so this can
@@ -609,6 +676,19 @@ export default {
       const sub = el.querySelector('.sub');
       const txt = this.subtitle(item);
       if (sub && sub.textContent !== txt) sub.textContent = txt;
+      /* The room's own slider follows the lamp — somebody may have moved it in
+         the Hue app — but never while a finger is on this one. A whole-house
+         scene is nine lamps reporting their way through a fade, which without
+         this would drag the handle out from under a hand mid-adjustment. */
+      const sl = el.querySelector('.tile-bri-in');
+      if (sl && this._dragId !== item.entity && document.activeElement !== sl) {
+        const pct = this.briOf(item);
+        if (Number(sl.value) !== pct) {
+          sl.value = String(pct);
+          const val = el.querySelector('.tile-bri-val');
+          if (val) val.textContent = `${pct}%`;
+        }
+      }
     }
     const cards = this.tiles.querySelectorAll('.reading');
     climate.forEach((c, i) => {
@@ -659,9 +739,21 @@ export default {
           <span class="ls-label">Warmth <b class="ls-temp-val"></b></span>
           <input class="ls-slider ls-kelvin" type="range" step="50">
         </div>
+        <!-- The swatches and the wheel are one row, side by side. On its own
+             row underneath, the wheel pushed the sheet past the height of the
+             screen and became a control you had to scroll to reach — on a wall
+             with no scrollbar to speak of and wet hands, that is a control
+             that is not there. Beside them it costs no height at all: the
+             right-hand half of this row was empty. -->
         <div class="ls-row ls-colour">
-          <span class="ls-label">Colour</span>
-          <div class="ls-swatches"></div>
+          <span class="ls-label">Colour <b class="ls-wheel-val"></b></span>
+          <div class="ls-colour-set">
+            <div class="ls-swatches"></div>
+            <div class="ls-wheel" role="slider" tabindex="0"
+                 aria-label="pick a colour: hue around, strength outwards">
+              <span class="ls-wheel-dot"></span>
+            </div>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(el);
@@ -710,6 +802,74 @@ export default {
       sw.onclick = () => this.push(
         { hs_color: [Number(sw.dataset.h), Number(sw.dataset.s)] }, true);
     });
+    this.wireWheel(el.querySelector('.ls-wheel'));
+  },
+
+  /* ---------------- the colour wheel ----------------
+     The nine swatches are the decisions; this is the fiddle, and both belong
+     in the sheet for the same reason the brightness slider does. Hue runs
+     around it and strength outwards, so the middle is white and the rim is as
+     saturated as the lamp can manage — which is the shape of the thing being
+     chosen rather than two sliders somebody has to combine in their head.
+
+     One finger, dragged: pointer capture, so a hand that slides off the disc
+     mid-choice keeps setting the colour instead of dropping it. Throttled
+     through the same push() the sliders use — a bridge takes about ten
+     commands a second to one lamp, and a drag would otherwise send hundreds. */
+  wheelAt(el, ev) {
+    const r = el.getBoundingClientRect();
+    const radius = r.width / 2;
+    const dx = ev.clientX - (r.left + radius);
+    const dy = ev.clientY - (r.top + radius);
+    // Measured from the top, clockwise — the same direction and origin the
+    // conic gradient behind it is painted in, or the colour under the finger
+    // would not be the colour that arrives.
+    const hue = Math.round((Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360);
+    const sat = Math.round(Math.min(1, Math.hypot(dx, dy) / radius) * 100);
+    return [hue, sat];
+  },
+
+  paintWheel(hue, sat) {
+    const el = this.sheet?.querySelector('.ls-wheel');
+    if (!el) return;
+    const dot = el.querySelector('.ls-wheel-dot');
+    const th = (hue * Math.PI) / 180;
+    const d = (sat / 100) * 50;
+    dot.style.left = `${50 + Math.sin(th) * d}%`;
+    dot.style.top = `${50 - Math.cos(th) * d}%`;
+    dot.style.background = `hsl(${hue} ${sat}% 55%)`;
+    const val = this.sheet.querySelector('.ls-wheel-val');
+    if (val) val.textContent = sat < 4 ? 'white' : `${hue}° · ${sat}%`;
+  },
+
+  wireWheel(el) {
+    if (!el) return;
+    const move = (ev) => {
+      const [hue, sat] = this.wheelAt(el, ev);
+      this.paintWheel(hue, sat);
+      this.push({ hs_color: [hue, sat] });
+    };
+    el.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      // Capture is what keeps a hand that slides off the disc mid-choice still
+      // choosing. It throws for a pointer the browser does not own, and an
+      // exception here would take the colour with it — the drag matters more
+      // than the capture, so the capture is the part allowed to fail.
+      try { el.setPointerCapture(ev.pointerId); } catch { /* drag on without it */ }
+      el.dataset.drag = '1';
+      move(ev);
+    });
+    el.addEventListener('pointermove', (ev) => { if (el.dataset.drag) move(ev); });
+    const end = (ev) => {
+      if (!el.dataset.drag) return;
+      delete el.dataset.drag;
+      const [hue, sat] = this.wheelAt(el, ev);
+      this.paintWheel(hue, sat);
+      // The last word, sent at once rather than waiting on the throttle.
+      this.push({ hs_color: [hue, sat] }, true);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   },
 
   /* A slider dragged across its range fires a call per pixel; Home Assistant
@@ -774,7 +934,17 @@ export default {
     const el = this.sheet;
 
     el.querySelector('.ls-temp').hidden = !caps.temp;
+    // The wheel lives inside this row, so hiding it for a lamp with no colour
+    // takes the wheel with it — one rule, not two that can disagree.
     el.querySelector('.ls-colour').hidden = !caps.colour;
+    // Where the lamp actually is, so the dot is on the colour in the room
+    // rather than wherever it was last dragged to. A lamp on white reports no
+    // hue at all, which is the middle of the wheel and not an absence.
+    if (caps.colour && !el.querySelector('.ls-wheel')?.dataset.drag) {
+      const hs = a.hs_color;
+      this.paintWheel(Array.isArray(hs) ? Math.round(hs[0]) : 0,
+                      Array.isArray(hs) ? Math.round(hs[1]) : 0);
+    }
     el.querySelector('.ls-on').classList.toggle('on', st.s === 'on');
     el.querySelector('.ls-off').classList.toggle('on', st.s !== 'on');
 

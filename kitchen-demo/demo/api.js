@@ -20,7 +20,10 @@
   'use strict';
 
   const D = window.DEMO;
-  const STORE = 'kitchen-demo-v4';
+  // Bumped whenever fresh() gains a key: a visitor carrying last month's saved
+  // state would otherwise get a dashboard with no bird box log and no week in
+  // it, which looks exactly like a broken panel.
+  const STORE = 'kitchen-demo-v5';
   const BUILD = 'demo';
   const DAY = 86400000;
 
@@ -36,8 +39,15 @@
       timers: JSON.parse(JSON.stringify(D.TIMERS)),
       events: JSON.parse(JSON.stringify(D.EVENTS)),
       sugg: JSON.parse(JSON.stringify(D.SUGGESTIONS)),
+      week: D.week(),
       shopping: JSON.parse(JSON.stringify(D.SHOPPING)),
       pantry: JSON.parse(JSON.stringify(D.PANTRY)),
+      motion: {
+        settings: { ...D.MOTION_SETTINGS },
+        camera: { ...D.MOTION_CAMERA },
+        // Oldest first, as the server's own log file is.
+        events: D.motionEvents(),
+      },
       ha: D.haStates(),
       slideshow: { ...D.CONFIG.slideshow },
       // The tree writes these: a folder and whether it means "everything under
@@ -49,6 +59,7 @@
         { root: 'photos', folder: 'Pictures/2025/Hills', deep: true },
       ],
       liked: [],
+      disliked: [],
       slide: 0,
     };
   }
@@ -58,6 +69,22 @@
     const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (saved && saved.ui) S = { ...S, ...saved };
   } catch { /* private window, or a half-written entry: the defaults stand */ }
+
+  /* The bird box log and the week are the two things here that are about
+     *when* rather than what, and a visitor's saved state is from whenever they
+     last looked. A log whose newest still is three days old reads as a camera
+     that has stopped, and a plan that ran out on Tuesday reads as a week
+     nobody kept — so both are re-dated to this visit. What somebody changed
+     while they were here is kept: the motion settings as they left them, and
+     their 👍/👎 carried across by which day of the plan it was, since the
+     dates underneath have all moved on.
+
+     A test event they fired themselves goes with the old log, which is right:
+     it was a demonstration of the noise, not a bird. */
+  S.motion.events = D.motionEvents();
+  const wasRated = (S.week?.days || []).map((d) => d.rating || {});
+  S.week = D.week();
+  S.week.days.forEach((d, i) => { if (wasRated[i]) d.rating = wasRated[i]; });
 
   /* A timer that ran out while nobody was here would greet the next visitor
      with an alarm and a flashing card. Anything more than ten minutes stale is
@@ -99,6 +126,8 @@
       cooking_suggestions: withStale(S.sugg),
       cooking_shopping: S.shopping,
       cooking_pantry: S.pantry,
+      cooking_week: weekJson(),
+      motion: motionJson(),
       photo_cache: cacheState(),
     };
   }
@@ -175,6 +204,146 @@
 
   function withStale(doc) {
     return { ...doc, stale: doc.date !== D.iso(new Date()) };
+  }
+
+  /* ------------------------------------------------------------- the week
+     `today` travels with the document for the same reason `stale` does on the
+     suggestions: the panel must not decide which row is today against the
+     clock of whatever phone is looking at it. */
+  function weekJson() {
+    const today = D.iso(new Date());
+    return {
+      ...S.week,
+      today,
+      has_today: (S.week.days || []).some((d) => d.date === today),
+    };
+  }
+
+  /* What the week would add to the shopping list: everything the days from
+     today on still need that is not in the cupboard and not already on the
+     list. The server decides this on the wall too — the panel only asks. */
+  function weekShop() {
+    const today = D.iso(new Date());
+    const pantry = new Set(S.pantry.items.map((i) => i.name));
+    const listed = new Set(S.shopping.items.filter((i) => !i.checked).map((i) => i.name));
+    const days = (S.week.days || []).filter((d) => d.date >= today);
+    const added = [];
+    for (const d of days) {
+      for (const kind of ['veg', 'normal']) {
+        for (const i of d[kind]?.ingredients || []) {
+          if (i.have || pantry.has(i.name) || listed.has(i.name)) continue;
+          listed.add(i.name);
+          added.push(i.name);
+          S.shopping.items.push({
+            id: newId(), name: i.name, qty: i.qty, checked: false, checked_at: null,
+            source: 'week', recipe_id: d[kind].id, staple: false,
+          });
+        }
+      }
+    }
+    if (added.length) set('cooking_shopping', S.shopping);
+    return { ok: true, added, days: days.map((d) => d.date), shopping: S.shopping };
+  }
+
+  function rateDay(date, kind, rating) {
+    const day = (S.week.days || []).find((d) => d.date === date);
+    if (!day || !['veg', 'normal'].includes(kind)) return { ok: false };
+    day.rating = { ...(day.rating || {}), [kind]: rating === 1 || rating === -1 ? rating : null };
+    set('cooking_week', weekJson());
+    return { ok: true };
+  }
+
+  /* --------------------------------------------------------- the bird box
+     One SSE key carries the lot — the settings, the camera's own sensitivity,
+     the count and the log — exactly as the server sends it, which is why the
+     panel and the block in the top bar never disagree.
+
+     The stills are files on disk rather than /api/motion/file/… URLs: an <img>
+     src never passes through the fetch shim below, so a made-up route would
+     draw six broken pictures. */
+  function motionUrl(name) { return D.MOTION_FILES[name] || ''; }
+
+  function eventJson(row) {
+    const out = { ...row };
+    if (row.snapshot) out.snapshot_url = motionUrl(row.snapshot);
+    if (row.clip) out.clip_url = motionUrl(row.clip);
+    return out;
+  }
+
+  function countToday() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const from = start.getTime() / 1000;
+    return S.motion.events.filter((e) => e.at >= from).length;
+  }
+
+  function motionJson() {
+    const rows = S.motion.events;
+    return {
+      settings: S.motion.settings,
+      // There is no camera to be subscribed to, and saying so is better than
+      // a green line that means nothing: the sheet prints this verbatim.
+      connected: false,
+      error: 'no camera in the demo — the log below is made up',
+      count_today: countToday(),
+      last_at: rows.length ? rows[rows.length - 1].at : 0,
+      // Newest first, and only the last forty: the panel steps through this
+      // list with ‹ › and prints "3 of 40" against its length.
+      events: rows.slice(-40).reverse().map(eventJson),
+      camera: S.motion.camera,
+    };
+  }
+
+  function motionSet(body) {
+    const cur = S.motion.settings;
+    const next = { ...cur };
+    for (const [k, v] of Object.entries(body || {})) {
+      if (!(k in D.MOTION_SETTINGS)) continue;         // as the server does
+      if (k === 'light_rooms') {
+        const known = new Set(D.ENTITIES.lights.map((r) => r.entity));
+        next[k] = (Array.isArray(v) ? v : []).filter((x) => known.has(x)).slice(0, 12);
+        continue;
+      }
+      next[k] = typeof D.MOTION_SETTINGS[k] === 'number' ? Number(v) : v;
+    }
+    S.motion.settings = next;
+    set('motion', motionJson());
+    return { ok: true, settings: next };
+  }
+
+  /* The sensitivity lives in the camera on the wall outside, not in a file on
+     the server, which is why it has a route of its own. The firmware validates
+     nothing — it accepted every number put to it and read it back verbatim —
+     so the guard is here, as it is there. */
+  function cameraSet(level) {
+    const n = Math.max(1, Math.min(6, Math.round(Number(level) || 0)));
+    S.motion.camera = { level: n, read_at: Math.floor(Date.now() / 1000), error: '' };
+    set('motion', motionJson());
+    return { ok: true, camera: S.motion.camera };
+  }
+
+  /* "Test motion" behind the gear. On the wall this records one event exactly
+     as a real one — the sound, the still, the log entry, the lights — so the
+     whole chain can be tried without a bird. Here it does the same, with a
+     frame off the clip standing in for the camera's own. */
+  function motionTest() {
+    const at = Math.floor(Date.now() / 1000);
+    const n = (S.motion.events.length % 6) + 1;
+    S.motion.events.push({
+      id: `m${at}`, at, event: 'Test',
+      ...(S.motion.settings.snapshot ? { snapshot: `still-${n}.jpg` } : {}),
+      ...(S.motion.settings.clip ? { clip: 'birdbox.mp4' } : {}),
+    });
+    set('motion', motionJson());
+    return { ok: true, at };
+  }
+
+  function motionDrop(id) {
+    S.motion.events = id
+      ? S.motion.events.filter((e) => e.id !== id)
+      : [];
+    set('motion', motionJson());
+    return { ok: true, count: S.motion.events.length };
   }
 
   /* ------------------------------------------------------------- the photos
@@ -385,39 +554,66 @@
     return { ...entry, kind: 'photo', url: entry.src, thumb_url: entry.src };
   }
 
-  function likedList() {
+  /* ♥ and 👎 are the same machinery pointed at two lists, exactly as they are
+     on the server — one shared copy-and-record, two files. The difference is
+     what the list is *for*: the liked one is a keepsake the slideshow can draw
+     from with the NAS asleep, and the disliked one is a list of things to
+     delete later, which is why every row on it carries the photograph's whole
+     path. Disliking also steps the show on: the point of pressing it is not
+     seeing that picture again, and leaving it on the screen answers nothing. */
+  const KEPT = {
+    liked: { rows: () => S.liked, put: (v) => { S.liked = v; }, stamp: 'liked_at' },
+    disliked: { rows: () => S.disliked, put: (v) => { S.disliked = v; }, stamp: 'disliked_at' },
+  };
+
+  function keptList(kind) {
+    const { rows, stamp } = KEPT[kind];
     return {
-      items: [...S.liked].sort((a, b) => (b.liked_at || 0) - (a.liked_at || 0))
-        .map(likedJson),
+      items: [...rows()].sort((a, b) => (b[stamp] || 0) - (a[stamp] || 0)).map(likedJson),
     };
   }
 
-  function toggleLike(body) {
+  function toggleKept(kind, body) {
+    const { rows, put, stamp } = KEPT[kind];
     const item = findItem(body || {});
     if (!item || item.kind !== 'photo') return [{ error: 'unknown photo' }, 404];
     const key = likeKey(item.root, item.folder, item.name);
-    const was = S.liked.find((r) => r.key === key);
+    const flag = kind === 'disliked' ? 'disliked' : 'liked';
+    const was = rows().find((r) => r.key === key);
     if (was) {
-      S.liked = S.liked.filter((r) => r.key !== key);
+      put(rows().filter((r) => r.key !== key));
       persist();
-      return [{ ok: true, liked: false, count: S.liked.length }];
+      return [{ ok: true, [flag]: false, count: rows().length }];
     }
     const entry = {
       key,
-      file: likedFilename(item.name, new Set(S.liked.map((r) => r.file))),
+      file: likedFilename(item.name, new Set(rows().map((r) => r.file))),
       root: item.root, folder: item.folder, name: item.name,
       library: item.library, path: item.path, mtime: item.mtime,
-      liked_at: Date.now() / 1000, quality: 'original', src: item.url,
+      [stamp]: Date.now() / 1000, quality: 'original', src: item.url,
     };
-    S.liked.push(entry);
+    put([...rows(), entry]);
     persist();
-    return [{ ok: true, liked: true, count: S.liked.length, item: likedJson(entry) }];
+    return [{ ok: true, [flag]: true, count: rows().length, item: likedJson(entry) }];
   }
 
-  function unlike(file) {
-    S.liked = S.liked.filter((r) => r.file !== file);
+  function unkeep(kind, file) {
+    const { rows, put } = KEPT[kind];
+    put(rows().filter((r) => r.file !== file));
     persist();
-    return { ok: true, count: S.liked.length };
+    return { ok: true, count: rows().length };
+  }
+
+  /* Where the kept files would be. The wall is asked "where did that go?" and
+     answers with both halves — the path inside the container and the path on
+     the machine serving it — so the gear can print them. A browser has neither,
+     and says so rather than inventing a plausible-looking one. */
+  function keptPaths() {
+    const pair = (rel) => ({ container: `(in your browser) ${rel}`, host: '' });
+    return {
+      liked_files: pair('liked/'), liked_json: pair('liked.json'),
+      disliked_files: pair('disliked/'), disliked_json: pair('disliked.json'),
+    };
   }
 
   /* ------------------------------------------------------------------ house
@@ -526,10 +722,17 @@
   });
 
   function route(path, params, method, body) {
-    // Dropping a kept photograph names the file in the path itself, which the
-    // switch below cannot express. Everything else is an exact route.
+    // These name a file or an id in the path itself, which the switch below
+    // cannot express. Everything else is an exact route.
     if (method === 'DELETE' && path.startsWith('/api/media/liked/')) {
-      return json(unlike(decodeURIComponent(path.slice('/api/media/liked/'.length))));
+      return json(unkeep('liked', decodeURIComponent(path.slice('/api/media/liked/'.length))));
+    }
+    if (method === 'DELETE' && path.startsWith('/api/media/disliked/')) {
+      return json(unkeep('disliked',
+                         decodeURIComponent(path.slice('/api/media/disliked/'.length))));
+    }
+    if (method === 'DELETE' && path.startsWith('/api/motion/events/')) {
+      return json(motionDrop(decodeURIComponent(path.slice('/api/motion/events/'.length))));
     }
 
     switch (`${method} ${path}`) {
@@ -600,7 +803,13 @@
         return json(choose(body && body.recipe_id));
       case 'POST /api/cooking/ingredient':
         return json(tick(body.recipe_id, body.index, body.have));
+      /* Two forms, because a dinner outlives the card that offered it: a
+         recipe id is tonight's card, a date and a kind is a day of the week.
+         The second is the half of the loop that closes it — until it existed a
+         dinner could only be rated while its card was still on the wall, and
+         most dinners are eaten after the cards have turned over. */
       case 'POST /api/cooking/rate': {
+        if (body && body.date) return json(rateDay(body.date, body.kind, body.rating));
         const r = recipe(body && body.recipe_id);
         if (r) {
           r.rating = body.rating === 1 || body.rating === -1 ? body.rating : null;
@@ -608,6 +817,11 @@
         }
         return json({ ok: true });
       }
+
+      case 'GET /api/cooking/week':
+        return json(weekJson());
+      case 'POST /api/cooking/week/shop':
+        return json(weekShop());
 
       case 'GET /api/media/stats': {
         const rows = folderRows().folders;
@@ -635,15 +849,23 @@
       case 'GET /api/media/slideshow/next':
         return json(nextSlide());
       case 'GET /api/media/slideshow/settings':
-        return json(S.slideshow);
+        // `paths` is where the kept copies live and `defaults` is what the
+        // gear's Reset row puts back; the panel draws both.
+        return json({ ...S.slideshow, defaults: D.CONFIG.slideshow, paths: keptPaths() });
       case 'PUT /api/media/slideshow/settings':
         S.slideshow = { ...S.slideshow, ...body };
         set('slideshow_settings', S.slideshow);
         return json(S.slideshow);
       case 'GET /api/media/liked':
-        return json(likedList());
+        return json(keptList('liked'));
+      case 'GET /api/media/disliked':
+        return json(keptList('disliked'));
       case 'POST /api/media/like': {
-        const [payload, status] = toggleLike(body);
+        const [payload, status] = toggleKept('liked', body);
+        return json(payload, status || 200);
+      }
+      case 'POST /api/media/dislike': {
+        const [payload, status] = toggleKept('disliked', body);
         return json(payload, status || 200);
       }
 
@@ -651,6 +873,19 @@
         return json(cacheState());
       case 'POST /api/media/cache/refill':
         return json(refill());
+
+      case 'GET /api/motion':
+        return json(motionJson());
+      case 'PUT /api/motion/settings':
+        return json(motionSet(body));
+      case 'PUT /api/motion/camera':
+        return json(cameraSet(body && body.level));
+      case 'POST /api/motion/camera/refresh':
+        return json({ ok: true, camera: S.motion.camera });
+      case 'POST /api/motion/test':
+        return json(motionTest());
+      case 'DELETE /api/motion/events':
+        return json(motionDrop(null));
 
       case 'GET /api/hue/status':
         return json({ ok: true, zone: 'Whole house' });

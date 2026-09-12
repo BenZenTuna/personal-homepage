@@ -1,22 +1,22 @@
-// Weather lives in the header: a "now" block plus an hourly band that reads
-// from across the kitchen. Eight hours are in view and the next two days are
-// under the finger — the band is dragged sideways like a phone, or paged with
-// the arrows at either end.
+// Weather lives in the header as one block: what it is doing right now, and
+// the place it is doing it. Tapping it opens the whole report — the hours, the
+// ten days, and every reading behind them.
 //
-// Two things are tappable, and each opens what it is a summary *of*:
+// There was an hourly band beside it, six hours wide and draggable for two
+// days. It has gone: the hours it showed are the first rows of the report a
+// tap away, and the top bar had exactly one place where something could stand
+// that is not available anywhere else on the wall — what the bird box has
+// seen. See motionbar.js.
 //
-//   the "now" block  ->  the week ahead, a row a day
-//   the hourly band  ->  the hours in detail — feels-like, humidity, UV, air
-//                        quality, wind, hour by hour
-//
-// They used to be one screen behind the band, which meant the way to next
-// Thursday was through a chart of the next 48 hours, and the block showing
-// today's temperature was not a button at all. Each half now sits behind the
-// thing on the wall that is the short version of it.
+// This module still paints three things besides the sheet: the "now" block in
+// the header, the small mirror in a full-screen panel's header, and the strip
+// of hours down the side of a full-screen picture.
 
 const REFRESH_MS = 10 * 60 * 1000;
-const BAND_HOURS = 48;   // eight in view, the rest are a swipe away
-const BAND_VISIBLE = 8;
+// Down the side of a full-screen panel. Twelve reaches this evening from any
+// hour of the morning, and twelve rows is what 1080px of panel holds at a size
+// readable from the other side of a kitchen.
+const COLUMN_HOURS = 12;
 
 /* ============================ drawn glyphs ============================
    Inline SVG rather than emoji or an icon font: it stays crisp at any size,
@@ -153,93 +153,95 @@ export default {
     el.querySelector('.hx-ico').innerHTML = icon(now.code, now.day);
     el.querySelector('.hx-temp').textContent = `${Math.round(now.temp)}°`;
     el.querySelector('.hx-wx').title = describe(now.code);
+    /* What it feels like, where there is room to print it — over a picture,
+       where this is the only weather on the screen.
+
+       It says "feels the same" rather than going blank when the two agree, and
+       that is the opposite of what the countdown chips do. The chips are a row
+       of forecasts being compared with each other, where a silent line reads as
+       "nothing to say about this one"; this is a single reading somebody looked
+       at deliberately, and a figure that vanishes for a week of mild weather
+       reads as broken rather than as equal. Same wording as the weather sheet's
+       own now-block, which had already settled the question.
+
+       Nothing at all only when the forecast did not carry the field — that is
+       "not known", and it is not the same answer. The element is missing in a
+       frontend older than this one, which is not an error either. */
+    const feels = el.querySelector('.hx-feels');
+    if (feels) {
+      feels.textContent = now.feels == null ? ''
+        : Math.round(now.feels) === Math.round(now.temp) ? 'feels the same'
+        : `feels ${Math.round(now.feels)}°`;
+    }
+  },
+
+  /* The hours down the left of a panel that has taken the whole screen.
+
+     The picture is the screen now and is centred on the whole of it, so this
+     is a thin strip lying over the bottom half of it rather than a column cut
+     out of the width: the hour and its glyph, nothing else, faint enough to
+     read the photograph through. The temperature is not repeated here — the
+     top bar's band carries it, and every reading is in the two sheets behind
+     the clock and the "now" block.
+
+     Handed the element to fill, or null when the panel closes. Same contract
+     as mirror() above, and painted from the same render(). */
+  column(el) {
+    this.columnEl = el || null;
+    this.paintColumn();
+  },
+
+  paintColumn() {
+    const el = this.columnEl;
+    if (!el) return;
+    const d = this.data;
+    if (!d || !d.hourly?.length) {
+      el.innerHTML = '<div class="wxc-none">no forecast yet</div>';
+      return;
+    }
+    const hours = d.hourly;
+    const i = Math.max(0, this.nowIndex(hours));
+    el.classList.toggle('weather-stale', !!d.stale);
+    el.innerHTML = hours.slice(i, i + COLUMN_HOURS).map((h, n) => {
+      const dt = new Date(h.t);
+      const midnight = dt.getHours() === 0;
+      // Same labelling as the header band: "now" first, and a weekday where a
+      // new day starts, because "00:00" alone never says which day it opens.
+      const label = n === 0 ? 'now'
+        : midnight ? dt.toLocaleDateString(undefined, { weekday: 'short' })
+        : `${String(dt.getHours()).padStart(2, '0')}:00`;
+      const cls = ['wxc-h'];
+      if (n === 0) cls.push('now');
+      if (!h.day) cls.push('night');
+      if (midnight && n !== 0) cls.push('newday');
+      return `<div class="${cls.join(' ')}">
+        <span class="wxc-t">${label}</span>
+        <span class="wxc-ico">${icon(h.code, h.day)}</span>
+      </div>`;
+    }).join('');
   },
 
   init() {
-    this.band = document.getElementById('hd-band');
     this.buildOverlay();
-    this.buildWeekOverlay();
-    this.wireBand();
     this.wireNow();
     this.refresh();
     setInterval(() => this.refresh(), REFRESH_MS);
   },
 
-  /* The "now" block is the week's first line, so it is the button the week
-     lives behind. A wall screen has no hover to hint at that, which is why it
-     gets the same lit border the band has. */
+  /* The "now" block is the short version of the report, so it is the button
+     the report lives behind. A wall screen has no hover to say that a reading
+     is also a button, which is why it gets a lit border when pressed. */
   wireNow() {
     const el = document.querySelector('.hd-now');
     if (!el) return;
     el.classList.add('tappable');
     el.setAttribute('role', 'button');
     el.setAttribute('tabindex', '0');
-    el.setAttribute('aria-label', 'the week ahead');
-    el.addEventListener('click', () => this.openWeek());
+    el.setAttribute('aria-label', 'the full forecast');
+    el.addEventListener('click', () => this.openOverlay());
     el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openWeek(); }
-    });
-  },
-
-  /* The band is three things at once — a strip you drag, a strip you page
-     with the arrows, and a button that opens the full forecast — so a tap has
-     to be told apart from a drag: any real finger travel cancels the open.
-     Dragging is wired by hand rather than left to native scrolling because a
-     wall screen is also poked with a mouse, and because momentum flinging on
-     a pinned kiosk tab tends to bounce the whole page. */
-  wireBand() {
-    let x0 = 0, y0 = 0, left0 = 0, down = false, moved = false;
-
-    this.band.addEventListener('pointerdown', (e) => {
-      down = true; moved = false;
-      x0 = e.clientX; y0 = e.clientY; left0 = this.band.scrollLeft;
-      this.band.classList.add('dragging');   // kills smooth scrolling mid-drag
-      // Capture so a finger (or mouse) that runs off the end of the strip
-      // keeps dragging it instead of dropping the gesture halfway.
-      try { this.band.setPointerCapture(e.pointerId); } catch { /* not captureable */ }
-    });
-    this.band.addEventListener('pointermove', (e) => {
-      if (!down) return;
-      const dx = e.clientX - x0;
-      if (Math.abs(dx) > 8 || Math.abs(e.clientY - y0) > 8) moved = true;
-      if (moved) {
-        this.band.scrollLeft = left0 - dx;
-        this.syncArrows();
-      }
-    });
-    const end = (e) => {
-      down = false;
-      this.band.classList.remove('dragging');
-      try { this.band.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
-    };
-    this.band.addEventListener('pointerup', end);
-    this.band.addEventListener('pointercancel', end);
-
-    this.band.addEventListener('click', () => { if (!moved) this.openOverlay(); });
-    this.band.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openOverlay(); }
     });
-    this.band.addEventListener('scroll', () => this.syncArrows(), { passive: true });
-    window.addEventListener('resize', () => this.syncArrows());
-
-    const wrap = this.band.parentElement;
-    wrap.querySelector('.hd-arrow.prev').onclick = () => this.page(-1);
-    wrap.querySelector('.hd-arrow.next').onclick = () => this.page(1);
-    this.syncArrows();   // nothing to scroll until the first forecast lands
-  },
-
-  /* One page is the eight hours currently in view, less one for continuity. */
-  page(dir) {
-    const step = this.band.clientWidth * (BAND_VISIBLE - 1) / BAND_VISIBLE;
-    this.band.scrollBy({ left: dir * step, behavior: 'smooth' });
-  },
-
-  syncArrows() {
-    const wrap = this.band.parentElement;
-    const b = this.band;
-    const max = b.scrollWidth - b.clientWidth;
-    wrap.querySelector('.hd-arrow.prev').hidden = b.scrollLeft <= 4;
-    wrap.querySelector('.hd-arrow.next').hidden = b.scrollLeft >= max - 4;
   },
 
   /* The hours, in detail. What a temperature on its own does not answer:
@@ -250,55 +252,41 @@ export default {
     el.id = 'wx-overlay';
     el.innerHTML = `
       <header>
-        <h2>The hours ahead</h2><span class="sub" id="wx-where"></span>
+        <h2>Weather</h2><span class="sub" id="wx-where"></span>
         <span class="spacer"></span>
         <button id="wx-close">Close</button>
       </header>
       <div id="wx-now"></div>
       <div id="wx-facts"></div>
-      <div class="wx-cap">The next 48 hours</div>
-      <div id="wx-hours"></div>
-      <div class="wx-cap">Hour by hour</div>
-      <div id="wx-list"></div>`;
+      <div id="wx-split">
+        <section>
+          <div class="wx-cap">Hour by hour</div>
+          <div id="wx-list"></div>
+        </section>
+        <section>
+          <div class="wx-cap">The next ten days</div>
+          <div id="wk-week"></div>
+        </section>
+      </div>
+      <div id="wk-foot"></div>`;
     document.body.appendChild(el);
     this.overlay = el;
     el.querySelector('#wx-close').onclick = () => this.closeOverlay();
   },
 
-  buildWeekOverlay() {
-    const el = document.createElement('div');
-    el.id = 'wk-overlay';
-    el.innerHTML = `
-      <header>
-        <h2>The week ahead</h2><span class="sub" id="wk-where"></span>
-        <span class="spacer"></span>
-        <button id="wk-close">Close</button>
-      </header>
-      <div id="wk-now"></div>
-      <div id="wk-week"></div>
-      <div id="wk-foot"></div>`;
-    document.body.appendChild(el);
-    this.week = el;
-    el.querySelector('#wk-close').onclick = () => this.closeWeek();
-  },
-
+  /* One sheet, whichever summary was tapped. The band and the "now" block are
+     two summaries of the same forecast, and two sheets put the hours and the
+     days a Close and a second tap apart — each opening with the same "now"
+     block at the top of it, which is how obvious it was that they were one
+     screen. The hours and the ten days sit side by side here, both in view,
+     because those are the two questions a kitchen asks the weather. */
   openOverlay() {
     if (!this.data || !this.data.hourly.length) return;
-    this.closeWeek();          // never two sheets over each other
     this.renderOverlay();
     this.overlay.classList.add('open');
   },
 
   closeOverlay() { this.overlay.classList.remove('open'); },
-
-  openWeek() {
-    if (!this.data || !this.data.hourly.length) return;
-    this.closeOverlay();
-    this.renderWeek();
-    this.week.classList.add('open');
-  },
-
-  closeWeek() { this.week.classList.remove('open'); },
 
   async refresh() {
     try {
@@ -308,7 +296,6 @@ export default {
     }
     this.render();
     if (this.overlay.classList.contains('open')) this.renderOverlay();
-    if (this.week.classList.contains('open')) this.renderWeek();
   },
 
   /* index of the hour containing "now", or -1 */
@@ -322,15 +309,9 @@ export default {
 
   render() {
     const d = this.data;
-    if (!d || !d.hourly.length) {
-      this.band.innerHTML = `<div class="placeholder">${(d && d.error) || 'no forecast yet'}</div>`;
-      this.syncArrows();
-      return;
-    }
+    if (!d || !d.hourly.length) return;   // the header keeps its last good reading
     const hours = d.hourly;
     const i = Math.max(0, this.nowIndex(hours));
-    const slice = hours.slice(i, i + BAND_HOURS);
-
     const now = hours[i] || hours[0];
     document.getElementById('now-icon').innerHTML = icon(now.code, now.day);
     document.getElementById('now-temp').textContent = `${Math.round(now.temp)}°`;
@@ -341,32 +322,7 @@ export default {
     document.getElementById('now-stale').textContent = d.stale
       ? `as of ${this.hhmm(d.fetched_at * 1000)}` : '';
     this.paintMirror();
-
-    // Midnight starts a new day: it names its weekday and carries a divider,
-    // so hours scrolled in from tomorrow are never mistaken for today's.
-    this.band.innerHTML = slice.map((h, n) => {
-      const dt = new Date(h.t);
-      const rp = h.pp || 0;
-      const midnight = dt.getHours() === 0;
-      // A bare "14" beside a bare "20°" is two numbers with nothing to tell
-      // them apart. "14:00" is unmistakably a clock time at a glance.
-      const label = n === 0 ? 'now'
-        : midnight ? dt.toLocaleDateString(undefined, { weekday: 'short' })
-        : `${String(dt.getHours()).padStart(2, '0')}:00`;
-      const cls = ['hr'];
-      if (n === 0) cls.push('now');
-      if (!h.day) cls.push('night');
-      if (midnight && n !== 0) cls.push('newday');
-      return `<div class="${cls.join(' ')}">
-        <div class="hr-h">${label}</div>
-        <div class="hr-ico">${icon(h.code, h.day)}</div>
-        <div class="hr-t">${Math.round(h.temp)}°</div>
-        <div class="hr-f">${rp >= 20 ? `<i></i>${rp}%` : ''}</div>
-      </div>`;
-    }).join('');
-    this.band.classList.toggle('weather-stale', !!d.stale);
-    this.band.scrollLeft = 0;   // a refresh always brings "now" back into view
-    this.syncArrows();
+    this.paintColumn();
   },
 
   hhmm(ms) {
@@ -425,9 +381,6 @@ export default {
   renderOverlay() {
     const start = Math.max(0, this.nowIndex(this.data.hourly));
     const hours = this.data.hourly.slice(start, start + 48);
-    const temps = hours.map((h) => h.temp);
-    const lo = Math.min(...temps), hi = Math.max(...temps);
-    const span = Math.max(1, hi - lo);
     const now = hours[0] || {};
 
     document.getElementById('wx-where').textContent = this.data.city || '';
@@ -437,22 +390,10 @@ export default {
     facts.innerHTML = this.factTiles(now);
     facts.hidden = !facts.innerHTML;
 
-    document.getElementById('wx-hours').innerHTML = hours.map((h, n) => {
-      const dt = new Date(h.t);
-      const bh = 20 + Math.round(((h.temp - lo) / span) * 80);
-      const label = n === 0 ? 'now' : String(dt.getHours()).padStart(2, '0');
-      // Label every third hour so 48 columns stay readable.
-      return `<div class="wx-h${h.day ? '' : ' night'}">
-        <div class="t">${n % 3 === 0 ? `${Math.round(h.temp)}°` : ''}</div>
-        <div class="col"><i style="height:${bh}%"><b style="height:${h.pp || 0}%"></b></i></div>
-        <div class="h">${n % 3 === 0 ? label : ''}</div>
-      </div>`;
-    }).join('');
-
     /* A row an hour. The columns are fixed-width and every cell keeps its
        column even when the reading is missing, so the eye runs down "humidity"
        rather than hunting for it on each line. */
-    document.getElementById('wx-list').innerHTML = hours.slice(0, 24).map((h, n) => {
+    document.getElementById('wx-list').innerHTML = hours.map((h, n) => {
       const dt = new Date(h.t);
       const uv = uvBand(h.uv);
       const aq = aqiBand(h.aqi);
@@ -470,17 +411,15 @@ export default {
         <div class="hr-c">${h.wind == null ? '' : `${Math.round(h.wind)} km/h`}</div>
       </div>`;
     }).join('');
+
+    this.renderWeek();
   },
 
   renderWeek() {
     const start = Math.max(0, this.nowIndex(this.data.hourly));
     const hours = this.data.hourly.slice(start, start + 48);
-    const now = hours[0] || {};
 
-    document.getElementById('wk-where').textContent = this.data.city || '';
-    document.getElementById('wk-now').innerHTML = this.nowBlock(now);
-
-    /* The week, from Open-Meteo's own daily figures rather than folded up out
+    /* The days, from Open-Meteo's own daily figures rather than folded up out
        of the hours: only the first two days have hours to fold. Each row
        carries the real high and low, what those two will feel like, and when
        the sun is up — the two questions a day gets asked in a kitchen. */

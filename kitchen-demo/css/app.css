@@ -56,7 +56,15 @@
   --radius-sm: 10px;
   --touch: 52px;
   --gap: 14px;
-  --header-h: 132px;   /* kept low: the panels below want the room */
+  --header-h: 102px;   /* one row of views; the panels below want the room */
+  /* The six views sit at one place on the glass in every view — the top bar
+     or a panel filling the screen — so the button you just pressed is still
+     under your finger when the view it opened arrives. Both headers are laid
+     out from these two: the row's width, and how far its right end stays from
+     the right edge of the screen. What fills the gap is the tools and Live on
+     the top bar, and the panel's ⤢ on a full-screen one. */
+  --nav-w: 714px;      /* six 114px buttons and five 6px gaps */
+  --nav-right: 170px;
   --z: 1;              /* page scale; see body, and the media queries under it */
 
   /* Dark native widgets: the date input in the countdown editor is the only
@@ -133,7 +141,7 @@ button:active { filter: brightness(1.25); }
 
 .hd-clock {
   display: flex; flex-direction: column; justify-content: center;
-  gap: 2px; padding: 0 12px; min-width: 208px;
+  gap: 2px; padding: 0 12px; min-width: 160px;
 }
 #time {
   font-size: 52px; font-weight: 500; line-height: 0.9; letter-spacing: -2.5px;
@@ -145,12 +153,12 @@ button:active { filter: brightness(1.25); }
    enough to identify on its own, then the temperature, then the small print. */
 .hd-now {
   display: flex; align-items: center;
-  gap: 12px; padding: 0 16px; min-width: 210px;
+  gap: 12px; padding: 0 16px; min-width: 186px;
 }
-#now-icon { flex: 0 0 auto; width: 54px; height: 54px; }
+#now-icon { flex: 0 0 auto; width: 50px; height: 50px; }
 .hd-now-txt { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
-#now-temp { font-size: 38px; font-weight: 500; line-height: 1; letter-spacing: -1.5px; }
-#now-cond { font-size: 15px; color: var(--mid); }
+#now-temp { font-size: 36px; font-weight: 500; line-height: 1; letter-spacing: -1.5px; }
+#now-cond { font-size: 14px; color: var(--mid); }
 .hd-now-sub {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: var(--dim);
@@ -162,83 +170,53 @@ button:active { filter: brightness(1.25); }
 .hd-now-sub > span:not(:empty) ~ span:not(:empty)::before { content: '· '; }
 #now-rain { color: var(--birds); }
 
-/* hourly band ---------------------------------------------------- */
-/* Eight hours are shown at a size that reads from across the kitchen; the
-   next two days are dragged in sideways with a finger. No temperature bars —
-   the glyph, the degree and the hour say it all, and the 48-hour overlay
-   carries the shape of the day. */
-.hd-bandwrap { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; }
-#hd-band {
+/* the bird box, in the top bar ----------------------------------- */
+/* Where the hourly band was. The band summarised a forecast that is one tap
+   away behind the reading to its left — the same hours, in more detail,
+   whenever anybody asks — so the middle of the top bar was the one place on
+   this wall where something could stand that is nowhere else: what the camera
+   has seen today. Tapping it opens Birds, where the stills and the settings
+   are. Filled by motionbar.js from the same SSE key that view reads. */
+#hd-motion {
   flex: 1; min-width: 0;
-  display: flex; align-items: stretch; gap: 3px;
-  padding: 2px 8px;
-  border-radius: var(--radius);
-  overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x proximity;
-  /* Match the padding, or the first cell can only snap to scrollLeft 8 and
-     the "earlier hours" arrow never believes it is at the start. */
-  scroll-padding-inline: 8px;
-  scroll-behavior: smooth;
-  /* The drag is wired by hand in weather.js; leaving native panning on as
-     well would move the strip twice as far as the finger. */
-  touch-action: none;
-  scrollbar-width: none;          /* the wall is touched, not scrolled by mouse */
-  overscroll-behavior-x: contain;
+  display: flex; align-items: center; gap: 18px;
+  margin: 10px 8px; padding: 0 16px;
+  border-radius: var(--radius-sm); border: 1px solid var(--rule-soft);
+  cursor: pointer; overflow: hidden;
 }
-#hd-band.dragging { scroll-behavior: auto; }   /* follow the finger exactly */
-#hd-band::-webkit-scrollbar { display: none; }
-.hr {
-  position: relative;
-  flex: 0 0 calc(12.5% - 2.7px);  /* eight columns in view, the rest scroll */
-  min-width: 0; scroll-snap-align: start;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 2px; padding: 6px 0 5px;
-  border-radius: var(--radius-sm);
+#hd-motion:active { background: var(--panel-2); }
+.mo-head { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.mo-n {
+  font-size: 38px; font-weight: 500; line-height: 1; letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums; color: var(--birds);
 }
-.hr.night { background: #191712; }
-.hr.now { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--rule); }
-/* A hairline where one day becomes the next, so hours dragged in from
-   tomorrow are never read as today's. */
-.hr.newday::before {
-  content: ''; position: absolute; left: -2px; top: 6px; bottom: 6px;
-  width: 1px; background: var(--rule);
+/* Nought is an answer, not an absence: it goes quiet rather than away, because
+   the block keeping its shape is what keeps the views beside it still. */
+#hd-motion.quiet .mo-n { color: var(--dim); }
+#hd-motion.off .mo-n { color: var(--dim); opacity: 0.6; }
+.mo-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mo-txt b { font-size: 15px; font-weight: 500; color: var(--text); }
+.mo-txt i { font-style: normal; font-size: 13px; color: var(--dim); white-space: nowrap; }
+.mo-thumbs { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+.mo-th {
+  position: relative; flex: 0 0 auto; width: 108px; height: 60px;
+  border-radius: 8px; overflow: hidden;
+  background: var(--well); border: 1px solid var(--rule-soft);
 }
-/* The hour is the label the whole cell hangs off, so it is not the smallest
-   thing in it: dim grey at 14px lost the argument with a 24px temperature. */
-.hr-h {
-  font-size: 16px; font-weight: 500; color: var(--mid);
-  font-variant-numeric: tabular-nums; letter-spacing: 0.2px;
+.mo-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A still is its own target now — the block opens the bird box, a still opens
+   the log that still is in — so it has to answer a finger on its own. The
+   block's own press state stops at the stills for the same reason: two
+   different things happening must not look like one. */
+.mo-th:active { border-color: var(--mid); }
+#hd-motion:active .mo-th { border-color: var(--rule-soft); }
+.mo-th i {
+  position: absolute; left: 5px; bottom: 4px; padding: 1px 7px;
+  border-radius: 999px; background: #100e0bcc;
+  font-style: normal; font-size: 12px; color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
-.hr.now .hr-h { color: var(--text); }
-.hr.newday .hr-h { color: var(--photos); }
-.hr-ico { width: 34px; height: 34px; flex: 0 0 auto; }
-.hr-t { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.8px; }
-.hr-f {
-  display: flex; align-items: center; gap: 4px; min-height: 17px;
-  font-size: 13px; color: var(--birds); font-variant-numeric: tabular-nums;
-}
-.hr-f i {
-  width: 6px; height: 6px; background: var(--birds);
-  border-radius: 60% 0 60% 60%; transform: rotate(-45deg);
-}
-
-/* Arrows sit over the ends of the band: a wall screen is not always within
-   comfortable swiping reach. They hide when there is nothing that way. */
-.hd-arrow {
-  position: absolute; top: 0; bottom: 0; z-index: 2;
-  width: 34px; font-size: 26px; line-height: 1; color: var(--mid);
-  background: linear-gradient(90deg, var(--bg) 55%, transparent);
-  border-radius: var(--radius);
-}
-.hd-arrow.prev { left: 0; }
-/* Only the fade is mirrored, not the chevron: a flipped "›" is a "‹", which
-   is exactly the wrong thing for the button that goes forward to say. */
-.hd-arrow.next {
-  right: 0;
-  background: linear-gradient(270deg, var(--bg) 55%, transparent);
-}
-.hd-arrow[hidden] { display: none; }
-.hd-arrow:active { color: var(--text); }
+.mo-none { font-size: 14px; color: var(--dim); white-space: nowrap; }
 
 /* weather glyphs — inline SVG, coloured from the palette ---------- */
 .wx-ico { width: 100%; height: 100%; display: block; }
@@ -252,44 +230,83 @@ button:active { filter: brightness(1.25); }
 .wx-ico .f line { stroke: var(--cloud); stroke-width: 2.4; stroke-linecap: round; }
 
 /* presets -------------------------------------------------------- */
-/* Six views in a 3x2 block: the mixed dashboards on the top row, the
-   single-source views underneath. Order comes from layouts.json. */
+/* Six views in one row, in the order layouts.json lists them. They were a 3x2
+   block up here and a shrink-to-fit line in a full-screen panel's header, so
+   the button you had just pressed jumped twice on the way into a picture and
+   out of it again. Now both are this row — same buttons, same size and, by
+   --nav-right, the same place — and the header is 30px lower for it. */
 #presets {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-  padding: 0 12px; align-content: center;
+  flex: 0 0 var(--nav-w);
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
 }
 /* These are the most-pressed targets on the wall — every view change goes
-   through them — so they take the room they need and the hourly band gives it
-   up. The band only ever shows eight hours; squeezed, those columns are
-   narrower, which costs less than a missed tap on Cooking with wet hands. */
+   through them — so they keep their full height and the hourly band gives up
+   hours instead: a missed tap on Cooking with wet hands costs more than the
+   seventh and eighth hour, which are a drag away. */
+/* Each button wears the hue its own view's panels wear — Cooking terracotta,
+   House green, Photos amber, Birds blue, TV teal, Everything the plain ink —
+   named per preset in layouts.json and set on the element by app.js. Six
+   identical dark rectangles were six words to read from the doorway; this way
+   the row is six different things before any of them is read. The hue is the
+   ink and a quarter of it is the ground, and the two swap over when the view
+   is the one on screen. A preset with no accent falls back to exactly what
+   every button looked like before. */
+/* The hues this wall is built from are pastels, which is right everywhere they
+   are used at size — a whole panel, a card's left edge, a kicker over a
+   photograph. At 114x58 with a tenth of the hue in the ground they were six
+   dark rectangles with tinted words on them, and from the doorway the colour
+   was a rumour. The row is the one place that needs the hue at full strength,
+   so the button *saturates* its own accent rather than being handed a second
+   palette to keep in step with the first: same six hues, more of each.
+
+   Everything, whose accent is the plain ink, comes out of this unchanged —
+   there is no saturation in a near-grey to raise. */
 #presets button {
-  height: 58px; width: 136px;
+  flex: 0 0 114px; height: 58px; padding: 0 6px;
   border-radius: var(--radius-sm);
-  background: var(--panel-2);
-  border: 1px solid var(--rule);
-  color: var(--text);
-  font-size: 18px; font-weight: 500;
+  --accent: var(--text);
+  /* Saturation only. Lightness is already where these hues want to be, and
+     raising it on a pastel that is nearly there pushes the channel past 1 —
+     Photos came out at 1.007 red, which is a clip, not a colour. */
+  --accent-lit: hsl(from var(--accent) h calc(s * 1.75) l);
+  background: color-mix(in srgb, var(--accent-lit) 24%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--accent-lit) 68%, transparent);
+  color: var(--accent-lit);
+  font-size: 18px; font-weight: 500; white-space: nowrap;
 }
 #presets button.on {
-  background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600;
+  background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600;
 }
 
-/* Full screen and meal time sit with the live dot: whole-screen actions, not
-   anything to do with one panel. */
+/* The corner right of the views. Whatever is in it, it is this wide, so the
+   views keep their place; the 20px taken off is the page's 16px margin and the
+   top bar's own 4px, which also stand between it and the edge. */
+.hd-right {
+  flex: 0 0 calc(var(--nav-right) - 20px);
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 10px; padding-left: 8px;
+}
+/* The three tools sit beside the views, not in a row before them: all three
+   act on the view you are looking at — arrange it, dim it, fill the screen
+   with it — so they belong against the buttons that choose it. They were a
+   column of three while the views were two rows; in a 102px header three
+   38px buttons stacked no longer fit, so they pair up with ⛶ across the foot.
+   Same three, same place, same meaning. */
 .hd-tools {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 2px 0 10px; flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(2, 42px); gap: 4px;
+  align-content: center; flex: 0 0 auto;
 }
 .hd-tools > button {
-  width: 46px; height: 46px; border-radius: var(--radius-sm);
+  height: 38px; border-radius: var(--radius-sm);
   background: var(--panel-2); border: 1px solid var(--rule);
-  color: var(--mid); font-size: 20px; line-height: 1;
+  color: var(--mid); font-size: 18px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
+.hd-tools > #full-btn { grid-column: 1 / -1; }
 .hd-tools > button.on { background: var(--text); border-color: var(--text); color: var(--bg); }
 .hd-live {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 4px 0 6px; font-size: 13px; color: var(--dim);
+  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  font-size: 13px; color: var(--dim);
 }
 
 /* ---- meal time: black, and staying that way ----
@@ -383,21 +400,38 @@ button:active { filter: brightness(1.25); }
 #p-services  header .dot { background: var(--house); }
 
 /* a panel filling the screen */
+/* --hx-inset is how far short of the screen's right edge the header's content
+   stops: the panel's 16px inset, its 1px border and the header's own 20px. ⤢
+   is placed from it, so the views end --nav-right from the edge here exactly
+   as they do in the top bar. */
 .panel.expanded {
   position: fixed; inset: 16px; z-index: 40;
   background: var(--panel);
+  --hx-inset: 37px;
 }
-.panel.expanded > header { height: 92px; padding-left: 28px; font-size: 32px; font-weight: 400; }
+/* 2px under the top bar's height because the header starts 1px lower (the
+   panel's border) — which centres the views on the line they had up there. */
+.panel.expanded > header {
+  height: calc(var(--header-h) - 2px);
+  padding-left: 28px; font-size: 32px; font-weight: 400;
+}
 .panel.expanded > header .dot { width: 9px; height: 9px; }
 .panel.expanded > header .meta { font-size: 16px; }
+/* Square, because it says ⤢ in here too — the toggle that made the panel big
+   is the toggle that makes it small, and a 150px button reading "Close" was a
+   different control in the same corner. Sized to the touch target the rest of
+   the header uses, not to a word. */
 .panel.expanded > header button.expand {
-  width: auto; min-width: 150px; height: 60px; margin-right: 16px;
+  width: 58px; min-width: 58px; height: 58px; padding: 0;
+  /* the room between the views and the right edge, less the header gap, the
+     button itself and --hx-inset: whatever is left goes in front of ⤢ */
+  margin-left: calc(var(--nav-right) - var(--hx-inset) - 58px - 16px);
   border: 1px solid #3d3a2c; border-radius: var(--radius-sm);
-  color: var(--text); font-size: 18px; font-weight: 500; padding: 0 26px;
+  color: var(--text); font-size: 26px; font-weight: 500;
 }
 .panel.expanded > header .custom-buttons { gap: 12px; }
 .panel.expanded > header .custom-buttons button {
-  height: 60px; padding: 0 24px; font-size: 18px; font-weight: 500;
+  height: 58px; padding: 0 24px; font-size: 18px; font-weight: 500;
 }
 
 /* An expanded panel covers the top bar, so the three things that are always
@@ -406,28 +440,79 @@ button:active { filter: brightness(1.25); }
    a full-screen bird box was the Close button, which is not where anybody
    looks for "show me the kitchen lights".
 
-   In here they are one line, not the 3x2 block the top bar has room for: a
-   panel header is 92px tall and the width is the one thing it has spare. */
-.panel.expanded > header { gap: 16px; padding-right: 8px; }
-.panel.expanded > header #presets {
-  display: flex; flex-wrap: nowrap; gap: 8px; padding: 0;
-  grid-template-columns: none; flex: 0 1 auto; min-width: 0;
-}
-.panel.expanded > header #presets button {
-  height: 56px; width: auto; min-width: 0; padding: 0 16px; font-size: 16px;
-  white-space: nowrap;
-}
+   They are the top bar's row, moved here unchanged — same buttons, same size,
+   same place. What the panel brings of its own (Browse, ⚙, Sound off) goes to
+   the left of them, so nothing crowds in between the views and ⤢. The order
+   is set here rather than in the DOM because the panel's own header has to
+   be in its usual order again the moment it is small. */
+.panel.expanded > header { gap: 16px; padding-right: 20px; }
+.panel.expanded > header .custom-buttons { order: 1; }
+.panel.expanded > header .spacer { order: 2; }
+.panel.expanded > header #presets { order: 3; }
+.panel.expanded > header button.expand { order: 4; }
+/* Allowed to shrink, because the views beside it no longer do: the event
+   chips give way (their titles ellipsise) before a view button gets narrower. */
 .hx {
-  display: flex; align-items: center; gap: 18px; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 18px; flex: 0 1 auto; min-width: 0;
   padding-left: 20px; border-left: 1px solid var(--rule);
 }
 .hx-time {
+  flex: 0 0 auto;
   font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -1.6px;
   font-variant-numeric: tabular-nums;
 }
-.hx-wx { display: flex; align-items: center; gap: 8px; }
+.hx-wx { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+/* ...but not over a picture. That header carries the clock and what is coming,
+   and the rest of its room goes to the six views; the weather is in the top
+   bar, a tap away behind the clock, and the hours are in the strip down the
+   left. Panels with no strip keep the pair: there it is the only weather on
+   the screen. */
+.panel.expanded.has-wxcol > header .hx-wx { display: none; }
 .hx-ico { width: 40px; height: 40px; flex: 0 0 auto; }
 .hx-temp { font-size: 28px; font-weight: 500; letter-spacing: -1px; }
+/* "Feels like" is printed over a picture and nowhere else. There the column has
+   the room for it and the top bar's own block is covered up, so this is the
+   only weather on the screen; in every other expanded header the icon and the
+   temperature are already that, and a third figure would crowd the panel's own
+   buttons off the line. Absent means "the same as it is" — see paintMirror(). */
+.hx-feels { display: none; font-size: 18px; color: var(--dim); white-space: nowrap; }
+/* What is coming, where the panel's own item count used to be. The count was a
+   number you want once while setting the cache up and it was on the wall for
+   ever; this is three words nobody asks for and everybody reads. */
+/* A chip, not another cell in the row. Beside a clock and a temperature, two
+   more numbers in the same weight read as a third reading of the weather —
+   which is what "10 days" beside "19°" looked like. Its own ground, its own
+   edge and the countdown's violet make it plainly a different kind of thing. */
+.hx-events { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hx-events:empty { display: none; }
+/* Not over the countdown itself: the two chips would be its first two rows,
+   an inch above the rows. With the views at their full width the header has
+   no room to say anything twice — it cut "Counting down" and both titles to
+   an ellipsis. */
+#p-countdown.expanded > header .hx-events { display: none; }
+/* Set by fitNextEvents() in app.js when two would cut a title short. */
+.hx-events.one .hx-next + .hx-next { display: none; }
+.hx-next {
+  display: flex; align-items: baseline; gap: 9px; min-width: 0;
+  padding: 7px 16px; border-radius: var(--radius-sm);
+  background: var(--panel-2); border: 1px solid var(--event);
+}
+/* The one after next is the same chip, dimmed. Two at full strength compete
+   for "the next thing", which is the one question this pair is here to answer;
+   dimming the second says which is which without a second design. */
+.hx-next + .hx-next { opacity: 0.62; }
+.hx-next-n {
+  font-size: 24px; font-weight: 600; color: var(--event); flex: 0 0 auto;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+}
+.hx-next-t {
+  font-size: 19px; color: var(--mid);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The panel's meta line is what the next event replaced — it is still set, and
+   still read by the un-expanded header, so it is hidden here rather than
+   blanked. */
+.panel.expanded > header .meta { display: none; }
 /* The panel's own name and its meta line are the least useful things in a
    header that now also carries the clock, the weather and six view buttons —
    you know which panel you opened. So they are the two that give way, and the
@@ -444,6 +529,277 @@ button:active { filter: brightness(1.25); }
   color: var(--dim); font-size: 18px; text-align: center; padding: 16px;
 }
 .placeholder .big { font-size: 46px; }
+
+/* ------- a picture filling the screen -------
+   Photos and the bird box, the two panels whose content has a shape of its
+   own. Full screen they stop being a card with a picture in it — no 16px
+   inset, no border, no title bar taking 92px off the top. The picture is the
+   screen, and everything else sits on it the way ♥ ‹ › always have: the clock
+   and the two countdown chips on the left, the panel's own buttons beside
+   them, the views and ⤢ on the right, over a gradient that carries them so
+   none of it is a slab. Nothing fades; the chrome is always up. A panel opts
+   in with `fullBleed`, and expand() in app.js adds the class. */
+.panel.expanded.bleed {
+  inset: 0; border: 0; border-radius: 0;
+  background: var(--well);
+  --hx-inset: 20px;   /* no inset and no border: only the header's own 20px */
+  /* Everything the picture carries at the top: the row of views, and under it
+     this view's own buttons. The gradient is this tall, a screen that is not a
+     picture starts below it, and both follow from the one number. */
+  --bleed-chrome: 186px;
+  /* One width for everything down the left edge — the weather, the countdown
+     chips and the hours under them. They are one column and they have to
+     measure as one; three things that each sized themselves to their own
+     content read as three things that happen to be near each other. */
+  --bleed-col: 340px;
+}
+/* The top bar's height plus the page's 16px margin above it, with the margin
+   as padding, so the views land on the very line the top bar's are on. Out of
+   the flow, so the body under it is the whole screen. */
+.panel.expanded.bleed > header {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 6;
+  height: calc(16px + var(--header-h)); padding-top: 16px;
+}
+.panel.expanded.bleed::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; z-index: 5;
+  height: var(--bleed-chrome); pointer-events: none;
+  background: linear-gradient(#100e0bf2, #100e0bb3 55%, transparent);
+}
+/* You know which picture you opened; the clock is the first thing instead. */
+.panel.expanded.bleed > header .dot,
+.panel.expanded.bleed > header .name { display: none; }
+/* Over a picture the left edge is a column, not a row: the clock, what it is
+   doing outside, the countdown, and the hours under all three. It is taken out
+   of the header's flex row entirely (absolute, against a header that is itself
+   positioned) so that a column as tall as six events cannot disturb the six
+   view buttons sharing that header — they stay on the line the top bar puts
+   them on, whatever is stacked under the clock.
+   Its own shadow, because below the gradient there is no ground at all: the
+   chips bring dark glass with them, the clock and the temperature do not. */
+.panel.expanded.bleed > header .hx {
+  position: absolute; left: 28px; top: 16px; width: var(--bleed-col);
+  flex-direction: column; align-items: stretch; gap: 12px;
+  padding-left: 0; border-left: 0;
+  text-shadow: 0 2px 6px #000000cc;
+}
+/* The weather comes back over a picture. It is hidden in every other
+   full-screen header (see .has-wxcol above) because the hours strip carries
+   the forecast there — but the strip is glyphs and hours, and it never says
+   what it is *now*, which is the one thing the top bar this panel is covering
+   had in it. */
+.panel.expanded.bleed > header .hx-wx {
+  display: flex; align-items: center; gap: 12px;
+}
+.panel.expanded.bleed > header .hx-ico { width: 48px; height: 48px; }
+.panel.expanded.bleed > header .hx-temp { font-size: 44px; letter-spacing: -1.6px; }
+.panel.expanded.bleed > header .hx-feels { display: inline; }
+/* The bird box, over a picture. A full-screen photograph covers the top bar,
+   and with it the one block on this wall that says whether anything has been
+   at the box today — so it comes back in the clock's column, under the time
+   and above what is coming, cut down to the count, what it counts and the last
+   still. One still rather than three: the rest of that column belongs to the
+   photograph beside it.
+
+   Built as a chip the size of the countdown's, and the number sits in the same
+   96px the days sit in, so "500" lines up under "4 days" and the left edge
+   reads as one stack. Out in the header row it had been a second block
+   floating in the middle of the picture, which is a thing near the clock
+   rather than part of it. */
+.hx-motion {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  padding: 6px 16px; border-radius: var(--radius-sm);
+  background: var(--panel-2); border: 1px solid var(--birds);
+  color: var(--text); text-align: left; touch-action: manipulation;
+}
+.hx-motion:active { border-color: var(--text); }
+.hx-mo-n {
+  flex: 0 0 auto; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums; color: var(--birds);
+}
+.panel.expanded.bleed > header .hx-mo-n { min-width: 96px; }
+/* Nought is an answer here too, and alerts switched off is a different answer
+   again — the line under the number says which, so the number only has to stop
+   claiming the attention that a bird earns. */
+.hx-motion.quiet { border-color: var(--rule); }
+.hx-motion.quiet .hx-mo-n { color: var(--dim); }
+.hx-motion.off .hx-mo-n { color: var(--dim); opacity: 0.6; }
+.hx-mo-txt { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.hx-mo-txt b { font-size: 15px; font-weight: 500; }
+.hx-mo-txt i {
+  font-style: normal; font-size: 13px; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Pushed to the far edge so the chip's own width sets where it sits, rather
+   than the length of the word beside it: the still lines up down the column
+   however the count reads. */
+.hx-mo-th {
+  position: relative; flex: 0 0 auto; width: 56px; height: 32px;
+  margin-left: auto; border-radius: 6px; overflow: hidden;
+  background: var(--well); border: 1px solid var(--rule-soft);
+}
+/* Nothing kept means no frame at all, rather than an empty grey box claiming
+   a picture failed to load. */
+.hx-mo-th:empty { display: none; }
+.hx-mo-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hx-mo-th i {
+  position: absolute; left: 4px; bottom: 3px; padding: 0 6px;
+  border-radius: 999px; background: #100e0bcc;
+  font-style: normal; font-size: 11px; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Over a picture there is no ground to borrow contrast from, so each control
+   brings its own — the dark glass ♥ ‹ › are made of. Never over a lit button
+   (`.on`): its ink is the page's dark, and on dark glass Browse turned into an
+   empty box the moment it was pressed. */
+.panel.expanded.bleed > header .hx-next,
+.panel.expanded.bleed > header .custom-buttons button:not(.on),
+.panel.expanded.bleed > header button.expand { background: #100e0bd9; }
+/* The views keep their hue over a picture, on the same dark glass — and a
+   little more of it than on the page, because a photograph behind the glass
+   lightens whatever is over it and takes the tint back out again. */
+.panel.expanded.bleed > header #presets button:not(.on) {
+  background: color-mix(in srgb, var(--accent-lit) 30%, #100e0bd9);
+}
+.panel.expanded.bleed > header button.expand { border-color: var(--rule); }
+/* A view's own buttons are not part of the row every view shares, so they sit
+   under it rather than in it, against the same right edge: one line that
+   belongs to this view only, and the six that never move above it. (The header
+   is positioned, so this hangs off it; the gradient reaches 186px and covers
+   it.) */
+.panel.expanded.bleed > header .custom-buttons {
+  position: absolute; top: calc(100% + 6px); right: 20px;
+  gap: 10px;
+}
+.panel.expanded.bleed > header .custom-buttons button { padding: 0 22px; }
+.panel.expanded.bleed > header .custom-buttons button.gear { padding: 0 18px; font-size: 24px; }
+/* Twice the size it is anywhere else, and only here. This is the view the
+   kitchen rests on: a photograph or the bird box, filling the glass, with the
+   clock the one reading left on the screen and a whole empty edge to put it
+   in. At 40px it was the header's clock with the header taken away — the same
+   size as the temperature it no longer sits beside, on a screen being read
+   from the doorway rather than from arm's length. The header keeps 40px, where
+   it shares a line with the weather and six buttons and 80px would push them
+   off it. */
+.panel.expanded.bleed > header .hx-time { font-size: 80px; letter-spacing: -3.2px; }
+
+/* Over a picture the chips fall down the left edge under the clock and the
+   weather, in the band of striped nothing a 4:3 photograph leaves anyway. A
+   row could hold two before the views began; a column holds six and still
+   covers no more of the picture than the band it is in.
+   They are a plain part of the column now rather than hung off the header at a
+   fixed offset: the weather above them can appear and disappear with the
+   forecast, and anything pinned under a thing of changing height is wrong
+   twice a day. One width for all of them, and one width for the days column
+   inside, so the titles start on one line and the edges agree. */
+.panel.expanded.bleed > header .hx-events {
+  flex-direction: column; align-items: stretch; gap: 8px;
+}
+.panel.expanded.bleed > header .hx-next-n { min-width: 96px; }
+/* The header row still has room for two, and only two. */
+.panel.expanded:not(.bleed) > header .hx-next:nth-child(n+3) { display: none; }
+/* Browse, the gear and the single-item view are screens of their own, not
+   things on a picture. They start under the header, and while one is open the
+   header gets a solid ground — the folder tree would otherwise scroll up
+   behind the clock. The chips go with the picture they were floating on, and
+   so does the bird box: everything in that column is furniture for a
+   photograph, and over a folder tree it is a block sitting on the controls. */
+.panel.expanded.bleed:has(> .body > .m-browse:not([hidden]),
+                          > .body > .m-view:not([hidden]),
+                          > .body > .cam-sheet:not([hidden])) > header .hx-events,
+.panel.expanded.bleed:has(> .body > .m-browse:not([hidden]),
+                          > .body > .m-view:not([hidden]),
+                          > .body > .cam-sheet:not([hidden])) > header .hx-motion { display: none; }
+.panel.expanded.bleed > .body > .m-browse,
+.panel.expanded.bleed > .body > .m-view,
+.panel.expanded.bleed > .body > .cam-sheet { top: var(--bleed-chrome); }
+.panel.expanded.bleed:has(> .body > .m-browse:not([hidden]),
+                          > .body > .m-view:not([hidden]),
+                          > .body > .cam-sheet:not([hidden]))::before {
+  background: var(--panel); border-bottom: 1px solid var(--rule-soft);
+}
+/* The caption clears the hours column rather than running under it. */
+.panel.expanded.bleed .m-caption { padding: 26px 260px 14px calc(var(--wxw, 0px) + 18px); }
+.panel.expanded.bleed .cam-live { padding: 7px 14px; font-size: 15px; }
+
+/* ------- the hours over a full-screen picture -------
+   The next twelve hours, down the left of a picture that now fills the screen.
+
+   A strip, not a column: the hour and its glyph, no temperature, over the
+   bottom half of the picture only and faint enough to read the photograph
+   through. It was 300px of solid ground carrying four readings a row, which on
+   a picture fitted to the whole width is 300px of photograph with a panel on
+   it. The top half of every picture is clear now, and the readings it gave up
+   are all still in the top bar's band and the two sheets behind the clock and
+   the "now" block. */
+.panel.expanded.has-wxcol { --wxw: 130px; }
+/* Over a picture it is the foot of the left column instead, so it is that
+   column's width plus the 28px it stands in from the edge — one number, which
+   the caption below also clears itself against. */
+.panel.expanded.bleed.has-wxcol { --wxw: calc(28px + var(--bleed-col)); }
+/* Browse, the gear and the single-item view are full-width screens of their
+   own — a folder tree squeezed beside a forecast helps nobody — so the column
+   retracts while one is open. (:has, not a sibling combinator — the column is
+   prepended, and ~ only ever looks forwards.) */
+.panel.expanded.has-wxcol > .body:has(> .m-browse:not([hidden])) > .wxcol,
+.panel.expanded.has-wxcol > .body:has(> .m-view:not([hidden])) > .wxcol,
+.panel.expanded.has-wxcol > .body:has(> .cam-sheet:not([hidden])) > .wxcol { display: none; }
+
+.wxcol {
+  position: absolute; left: 0; top: 50%; bottom: 0; width: var(--wxw); z-index: 4;
+  display: flex; flex-direction: column;
+  padding: 10px 14px; gap: 2px;
+  /* Fading in from nothing at the top, so the strip has no edge to read as a
+     panel, and dark enough at the foot to carry the hours over a bright
+     photograph. The shadow is what keeps them legible where it is faintest. */
+  background: linear-gradient(#100e0b00, #100e0b4d 60px, #100e0b73);
+  text-shadow: 0 1px 3px #000000b3;
+}
+/* Over a picture: no ground of its own, and standing under the countdown
+   rather than halfway down the glass.
+   The gradient is gone because it was a panel by another name — a soft-edged
+   slab down the left of every photograph, and the one thing on this screen
+   that was drawn to be looked *through* was the thing with a background. What
+   is left is the hours themselves, on the picture, with a shadow to carry them
+   over a bright one. `--wxtop` is measured by placeHours() in app.js: the
+   column above it is as tall as the number of events in it, and no number
+   written here could be right for three chips and for six. */
+.panel.expanded.bleed .wxcol {
+  left: 28px; width: var(--bleed-col); top: var(--wxtop, 50%);
+  padding: 0 4px 10px; gap: 4px;
+  background: none;
+  text-shadow: 0 2px 6px #000000d9, 0 0 3px #000000a6;
+  pointer-events: none;   /* a readout, never a target: the picture is under it */
+}
+.wxc-h {
+  flex: 1 1 0; min-height: 0;
+  display: grid; grid-template-columns: 1fr 40px; align-items: center;
+  gap: 14px; padding: 0 4px;
+  color: var(--text); font-size: 19px;
+}
+/* The glyph belongs to the hour beside it, not to the far edge of the column.
+   Stretching the label with `1fr` pushed the two apart until they read as two
+   lists — the hours down one line and the weather down another, with a hand's
+   width of photograph in between — and at a glance neither said which glyph
+   went with which hour. A fixed label column instead: wide enough for "14:00",
+   so the glyphs still line up under one another, with the pair sitting
+   together at the left where the eye takes them as one row. */
+.panel.expanded.bleed .wxc-h {
+  font-size: 21px;
+  grid-template-columns: 72px 40px; justify-content: start; gap: 12px;
+}
+.panel.expanded.bleed .wxc-ico { width: 40px; height: 40px; }
+.wxc-t { color: var(--mid); font-variant-numeric: tabular-nums; }
+.wxc-ico { width: 34px; height: 34px; display: block; }
+.wxc-ico svg { width: 100%; height: 100%; display: block; }
+/* "now" is the row you look for first, and a night hour should not read as
+   brightly as a day one when the two are stacked. */
+.wxc-h.now { color: var(--photos); font-weight: 500; }
+.wxc-h.now .wxc-t { color: var(--photos); }
+.wxc-h.night { opacity: 0.72; }
+.wxc-h.newday { border-top: 1px solid var(--rule); }
+.wxcol.weather-stale { opacity: 0.55; }
+.wxc-none { margin: auto; color: var(--dim); font-size: 16px; text-align: center; }
 
 /* ============================ camera ============================ */
 #p-camera .body {
@@ -465,6 +821,102 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 }
 .cam-live > i { width: 7px; height: 7px; border-radius: 50%; background: var(--house); }
 
+/* ---- what the camera saw ----
+   Two screens of the bird box's own: the settings for what to do when it
+   reports, and the log of what it has reported. Same shape as the photo
+   panel's Browse — a bar, then the content — because they are the same kind of
+   thing, and this wall has enough conventions already. */
+.cam-sheet {
+  position: absolute; inset: 0; z-index: 5;
+  background: var(--panel); overflow-y: auto;
+}
+.cam-sheet[hidden] { display: none; }
+.cam-conn { font-size: 14px; color: var(--dim); padding-right: 6px; }
+.cam-when {
+  position: absolute; left: 8px; bottom: 8px;
+  padding: 3px 8px; border-radius: 999px;
+  background: #100e0bcc; font-size: 13px; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cam-nostill {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--dim); font-size: 14px;
+}
+.cam-one { padding: 14px; display: flex; align-items: center; justify-content: center; }
+.cam-one img, .cam-one video { max-width: 100%; max-height: calc(100vh - 260px); display: block; }
+/* ‹ › over the still, in the corner the photographs put them in and wearing
+   the same dark glass: this wall has one gesture for "the next one" and it
+   should not move about depending on which picture is being looked at.
+
+   On the picture, not in the sheet's corner. The sheet is as wide as the panel
+   and a still is letterboxed in the middle of it, so buttons against the
+   sheet's edge floated in dark nothing a screen's width from the thing they
+   step through — measured at 1801px with the picture ending at 1486. The
+   frame shrink-wraps the media, so they sit on its corner whatever shape it
+   is. A clip keeps its own controls along the bottom; the pair lifts above
+   them rather than fighting for the same corner. */
+.cam-frame { position: relative; display: inline-flex; max-width: 100%; }
+.cam-frame img, .cam-frame video {
+  max-width: 100%; max-height: calc(100vh - 260px); display: block;
+}
+/* One event on its own is the only screen in this sheet that must not scroll:
+   the buttons that step to the next one are on the picture, and a picture
+   sized against the window rather than against the sheet it is in put them
+   nine pixels below the fold — reachable only by scrolling past the thing you
+   were looking at. So the sheet becomes the box and the picture takes its
+   height, whatever the header above it happens to be doing. The log and the
+   settings keep their own scrolling. */
+.cam-sheet.cam-solo { display: flex; flex-direction: column; overflow: hidden; }
+.cam-sheet.cam-solo .cam-one { flex: 1; min-height: 0; }
+.cam-solo .cam-frame { height: 100%; }
+.cam-solo .cam-frame img, .cam-solo .cam-frame video {
+  height: 100%; width: auto; max-height: none; object-fit: contain;
+}
+.cam-nav {
+  position: absolute; right: 16px; bottom: 16px; z-index: 2;
+  display: flex; align-items: center; gap: 10px;
+}
+.cam-frame.has-clip .cam-nav { bottom: 64px; }
+.cam-pos {
+  flex: 0 0 auto; font-size: 14px; color: var(--dim);
+  font-variant-numeric: tabular-nums; padding-right: 4px;
+}
+/* The count is a reading first and a button second: nothing seen is not a
+   thing to press, and it says so by going quiet rather than by going away. */
+.panel > header .custom-buttons button.cam-quiet { color: var(--dim); }
+
+/* ---- the wall is making a noise, and this is how it stops ----
+   "Until stopped" loops the alert, and a sound with no end of its own has to
+   carry the button that ends it. Fixed over every view, because the noise
+   plays in every view — the camera module runs whichever one is up.
+   z-index 90, which is over an expanded panel (40) and under meal time (100):
+   a bird at the box must not light the screen in the middle of dinner. It is
+   the only thing on this wall that appears without anybody pressing anything,
+   so it is also the only one that looks like an alarm. */
+#cam-alert {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 30px; z-index: 90;
+  display: none; align-items: center; gap: 18px;
+  padding: 14px 18px 14px 24px; border-radius: 999px;
+  background: #100e0bf2; border: 1px solid var(--birds);
+  box-shadow: 0 10px 30px #00000073;
+}
+#cam-alert.on { display: flex; }
+.al-mark { font-size: 30px; line-height: 1; }
+.al-txt { display: flex; flex-direction: column; gap: 2px; }
+.al-txt b { font-size: 19px; font-weight: 500; }
+.al-txt i {
+  font-style: normal; font-size: 15px; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+#cam-alert button {
+  min-height: var(--touch); padding: 0 26px; flex: 0 0 auto;
+  border-radius: var(--radius-sm); font-size: 17px; white-space: nowrap;
+}
+.al-see { background: var(--panel-2); border: 1px solid var(--rule); color: var(--text); }
+/* The one that ends it is the lit one: at arm's length in a kitchen, the
+   difference between the two buttons has to be visible before either is read. */
+.al-stop { background: var(--birds); color: var(--bg); font-weight: 600; }
+
 /* ============================ house ============================= */
 /* Rooms on top with the space, whole-house scenes under them, and the service
    index as one line at the foot. Only the tile grid is ever re-rendered —
@@ -481,7 +933,11 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
      clips what will not fit, so a row too short does not overflow visibly — it
      simply loses the bottom control, which is how the colours came to be in
      the markup and nowhere on the screen. */
-  gap: 10px; align-content: center; grid-auto-rows: minmax(64px, 152px);
+  /* The ceiling went up with the brightness row. A tile clips what will not
+     fit — silently, which is how the colour swatches once lived in the markup
+     and nowhere on the screen — so a row added inside one has to be paid for
+     here or it simply is not there. */
+  gap: 10px; align-content: center; grid-auto-rows: minmax(64px, 196px);
 }
 /* A container, not a button: the gear and the scene chips inside are their own
    tap targets, and a button may not legally contain another button. The gear
@@ -529,6 +985,36 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
   border: 1px solid #0004; touch-action: manipulation;
 }
 .tile.on .tile-sw { border-color: #14120f40; }
+/* One room's brightness, on its own tile. The whole-house dimmer has been
+   along the bottom since the beginning and each room has had one behind its
+   gear; this is the one that was missing — the room you are standing in,
+   under its own name, without a trip through a sheet. Shorter than the
+   sheet's 50px slider because it sits inside a tile, but still a 30px grip. */
+.tile-bri {
+  grid-column: 1; display: flex; align-items: center; gap: 10px;
+  padding: 0 14px 12px; min-width: 0;
+}
+.tile-bri .ls-slider { flex: 1 1 auto; min-width: 0; height: 34px; }
+.tile-bri .ls-slider::-webkit-slider-runnable-track { height: 16px; border-radius: 8px; }
+.tile-bri .ls-slider::-webkit-slider-thumb { width: 30px; height: 30px; margin-top: -8px; }
+.tile-bri .ls-slider::-moz-range-track { height: 16px; border-radius: 8px; }
+.tile-bri .ls-slider::-moz-range-thumb { width: 30px; height: 30px; }
+.tile-bri-val {
+  flex: 0 0 auto; min-width: 42px; text-align: right;
+  font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums;
+}
+/* A lit tile is a green slab, and the slider has to be legible on it rather
+   than on the panel it was drawn for. */
+.tile.on .tile-bri-val { color: #14120fcc; }
+.tile.on .tile-bri .ls-slider::-webkit-slider-runnable-track {
+  background: #14120f26; border-color: #14120f40;
+}
+.tile.on .tile-bri .ls-slider::-webkit-slider-thumb { background: var(--bg); }
+.tile.on .tile-bri .ls-slider::-moz-range-track {
+  background: #14120f26; border-color: #14120f40;
+}
+.tile.on .tile-bri .ls-slider::-moz-range-thumb { background: var(--bg); }
+
 .tile .lbl { font-size: 18px; font-weight: 500; }
 .tile .sub { font-size: 14px; color: var(--dim); }
 .tile.on { background: var(--house); border-color: var(--house); color: var(--bg); }
@@ -890,10 +1376,104 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 }
 .ck-divider { font-size: 13px; color: var(--dim); margin: 10px 4px 0; }
 .ck-foot { flex: 0 0 auto; display: flex; gap: 10px; padding: 8px 14px 14px; }
-.ck-add, .ck-clear {
+.ck-add, .ck-clear, .ck-shop {
   height: var(--touch); padding: 0 22px; font-size: 16px; color: var(--text);
   border: 1px solid var(--rule); border-radius: var(--radius-sm);
   background: var(--panel-2); touch-action: manipulation;
+}
+/* Everything the week still needs, in one stroke. Lit while there is anything
+   to add and quiet when there is not — the button stays where it was either
+   way, because a control that disappears once it has worked leaves the person
+   who pressed it wondering whether it did. */
+.ck-shop { flex: 1; min-width: 0; border-color: #4a352b; color: var(--food); }
+.ck-shop.off { border-color: var(--rule); color: var(--dim); }
+
+/* ---- the week ----
+   Seven rows, not seven columns. Seven columns on this panel is 170px each,
+   and at 170px every dinner in this house ends in an ellipsis — the same
+   arithmetic that made the strip under the photographs stack its two dishes.
+   A row gives each dinner half the panel's width, which fits the longest
+   title anybody writes. */
+/* Seven rows have to fit without scrolling. A week that scrolls is a week you
+   cannot see, and Sunday hiding under the fold is exactly the day somebody
+   opened this to check. The tighter gap and padding here buy the 26px that
+   made the difference on the wall; they are the week's own, so the shopping
+   list and the pantry keep the roomier row they can afford. */
+.ck-listwrap.wk-list { gap: 6px; }
+.wk-row {
+  flex: 0 0 auto; display: flex; align-items: stretch; gap: 14px;
+  padding: 9px 12px; border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); background: var(--panel-2);
+}
+/* Today is the row the eye should find from the doorway; the days already
+   eaten stay legible but stop competing for it. */
+.wk-row.now { border-color: var(--food); background: var(--panel); }
+.wk-row.past { opacity: 0.55; }
+.wk-when {
+  flex: 0 0 84px; display: flex; flex-direction: column; justify-content: center;
+  gap: 2px; padding-left: 4px;
+}
+.wk-when b { font-size: 20px; font-weight: 600; }
+.wk-when span { font-size: 13px; color: var(--dim); }
+.wk-today { color: var(--food) !important; font-size: 12px !important; }
+.wk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+/* The gap between the two dinners is wider than the gap between a dinner and
+   its own two thumbs, or the row reads as four things rather than two. */
+.wk-dishes { display: flex; gap: 22px; min-width: 0; }
+.wk-dish { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.wk-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+  min-height: var(--touch); padding: 6px 12px; text-align: left;
+  border: 1px solid var(--rule-soft); border-radius: var(--radius-sm);
+  background: var(--panel); color: var(--text); touch-action: manipulation;
+}
+.wk-open:active { border-color: var(--food); }
+.wk-thumb {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: var(--radius-sm);
+  object-fit: cover; background: var(--panel-2);
+}
+.wk-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.wk-text .kicker { font-size: 12px; color: var(--food); }
+.wk-text .kicker.alt { color: var(--mid); }
+/* Two lines at most, and then it clips: a dinner nobody can read is no use,
+   but neither is one row of the week growing to four lines and pushing
+   Thursday off the bottom. */
+.wk-name {
+  font-size: 18px; line-height: 1.2; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.wk-meta {
+  font-size: 12px; color: var(--dim); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.wk-daynote { font-size: 13px; color: var(--food); padding-left: 2px; }
+.wk-dish .ck-rate { width: 44px; height: 44px; font-size: 18px; }
+
+/* a day of the plan that is not today: the same card, with nothing on it that
+   would write to a document belonging to a different day */
+.ck-still { flex: 1; min-height: 0; display: flex; }
+.ck-alts { flex: 0 0 auto; font-size: 13px; color: var(--dim); padding: 0 4px; }
+.ck-ing.static { background: transparent; }
+
+/* The dish, where there is a picture of it. It yields before the ingredients
+   do — a recipe with twelve of them keeps the list and loses the photograph,
+   which is the right way round on a wall somebody is cooking from. */
+.ck-pic {
+  flex: 0 1 200px; min-height: 0; width: 100%; object-fit: cover;
+  border-radius: var(--radius-sm); background: var(--panel);
+}
+.ck-cookbody { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.ck-cookbody .ck-steps { min-width: 0; }
+/* The page the recipe was read off, beside the steps it was read into.
+   The size is a `width`, not a flex-basis. A photograph is a replaced element
+   with an aspect ratio of its own, and a basis is only a hypothetical size:
+   with `max-height: 100%` clamping a tall page, the width came back off the
+   ratio instead and a 800×1100 photograph took 540px of a 1216px panel —
+   measured, not guessed, and the steps beside it were the narrower column. */
+.ck-source {
+  flex: 0 0 auto; width: min(38%, 460px); align-self: flex-start;
+  max-height: 100%; object-fit: contain;
+  border-radius: var(--radius-sm); background: var(--panel-2);
 }
 
 /* ========================== countdown =========================== */
@@ -1327,10 +1907,42 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
   background: linear-gradient(90deg, #ff9d4d, #ffd7a8 45%, #fff4e6 70%, #dfeaff);
   border-color: var(--rule);
 }
-.ls-swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+/* The nine swatches and the wheel share one row: the decisions on the left,
+   the fiddle on the right, in width that was standing empty. On separate rows
+   the sheet outgrew the screen and the wheel fell below the fold. */
+.ls-colour-set {
+  display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+}
+.ls-swatches { display: flex; gap: 12px; flex-wrap: wrap; max-width: 420px; }
 .ls-sw {
   width: 64px; height: 64px; border-radius: 50%;
   background: var(--sw); border: 2px solid var(--rule);
+}
+
+/* The colour wheel: hue around, strength outwards, white in the middle.
+   The nine swatches above are the decisions and this is the fiddle — the same
+   division the brightness row keeps, where the four scenes are the decisions
+   and the slider is the fiddle. Its shape is the thing being chosen, which is
+   what a pair of sliders for hue and saturation never manages to be.
+   The conic gradient starts at the top and runs clockwise, and ha.js measures
+   the finger the same way round; change one and the colour under the finger
+   stops being the colour that arrives. */
+.ls-wheel {
+  position: relative; width: 240px; height: 240px; flex: 0 0 auto;
+  border-radius: 50%; touch-action: none; cursor: pointer;
+  border: 1px solid var(--rule);
+  background:
+    radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0) 72%),
+    conic-gradient(hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%),
+                   hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%),
+                   hsl(360 100% 50%));
+}
+/* Big enough to see under a fingertip that is covering it, and ringed in both
+   inks so it is visible on a red rim and in the white middle alike. */
+.ls-wheel-dot {
+  position: absolute; width: 34px; height: 34px; border-radius: 50%;
+  transform: translate(-50%, -50%); pointer-events: none;
+  border: 3px solid #fff; box-shadow: 0 0 0 2px #00000073, 0 2px 8px #00000073;
 }
 
 /* ============================== TV ============================== */
@@ -1421,8 +2033,20 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
   object-fit: contain; opacity: 0; transition: opacity 1.2s ease;
 }
 .m-img.show { opacity: 1; }
-/* The right padding is the transport buttons' room: the caption runs the whole
-   width of the frame and would otherwise pass under them.
+/* The clip sits over the photo stack and fades in once it can actually play,
+   so its poster — already crossfaded into the img underneath — is what fills
+   the frame until then. Same object-fit, set from the same setting, or the
+   framing would change halfway through a slide. */
+.m-vid {
+  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
+  object-fit: contain; opacity: 0; transition: opacity 0.4s ease;
+  background: transparent;
+}
+.m-vid.show { opacity: 1; }
+.m-vid[hidden] { display: none; }
+/* The right padding is the transport buttons' room — four of them now, 👎 ♥ ‹ ›,
+   which is 254px of row: the caption runs the whole width of the frame and
+   would otherwise pass under them.
 
    Two lines, because the question a caption on this wall gets asked is "which
    file is that and where is it" — the name answers the first, and only the
@@ -1430,7 +2054,7 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
    Camera. The path wraps to two lines at most and then gives up rather than
    climbing the photograph. */
 .m-caption {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 236px 12px 18px;
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 260px 12px 18px;
   display: flex; flex-direction: column; gap: 2px;
   color: var(--text);
   background: linear-gradient(transparent, #100e0be6);
@@ -1504,16 +2128,28 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 .m-like.on { color: var(--photos); border-color: var(--photos); }
 .m-ctl.m-like.on .m-hrt { fill: var(--photos); stroke: var(--photos); }
 .m-like.busy { opacity: 0.5; }
+/* The thumb down is the heart's opposite and wears the same two states, but
+   never the same colour: the two sit side by side, and lit in the same amber
+   they would read as the same answer. Terracotta is what the rest of this wall
+   uses for something still to be done, which is exactly what a disliked
+   photograph is — a line in the list of what to delete from the NAS. */
+.m-dislike.on { color: var(--food); border-color: var(--food); }
+.m-ctl.m-dislike.on .m-hrt { fill: var(--food); stroke: var(--food); }
+.m-dislike.busy { opacity: 0.5; }
 .m-gl { width: 26px; height: 26px; display: block; fill: currentColor; }
-/* Said in words as well as by the button, because from a doorway a stopped
-   slideshow and one whose next picture has not loaded look identical. Under
-   the button rather than off in a corner: the two are one statement. */
+/* Said in words as well as by the button, because a glyph on a photograph is
+   read two ways: ॥ is "this is paused" as often as "press to pause", and ▶ on
+   a picture looks like a video that has stopped, which it never is. So the
+   words say which it is and what a tap will do, under the button rather than
+   off in a corner, because the two are one statement. */
 .m-paused {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, 76px);
   z-index: 4; padding: 8px 18px; border-radius: 999px;
   background: #100e0bcc; border: 1px solid #ffffff2e;
-  font-size: 16px; color: var(--photos); white-space: nowrap;
+  font-size: 16px; color: var(--text); white-space: nowrap;
 }
+/* Held, it is the lit thing on the picture, like the button above it. */
+.m-is-paused .m-paused { color: var(--photos); border-color: #e6c08c5c; }
 .m-paused[hidden] { display: none; }
 .m-browse, .m-view { background: var(--panel); overflow-y: auto; }
 .m-bar {
@@ -1556,6 +2192,41 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
   background: var(--panel-2); border: 1px solid var(--rule); font-size: 16px;
 }
 .m-tab.on { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+/* What reaches the wall, in the bar beside the folder count. The tabs below
+   answer "what is there"; this answers "which of it plays", and at the end of
+   that row it read as a seventh tab. Three states and not a switch —
+   everything cached, only the never-kept, only the kept — so it is one
+   segmented block rather than three loose buttons. */
+.m-mix {
+  margin-left: 18px; display: flex; gap: 0; flex: 0 0 auto;
+  border: 1px solid var(--rule); border-radius: var(--radius-sm); overflow: hidden;
+}
+.m-mix:empty { display: none; }
+/* Qualified with the bar on purpose. `.m-bar button` is a descendant selector,
+   which outranks a bare class: unqualified, every segment took that rule's own
+   border and rounded corners and the control came out as three separate
+   buttons sitting in a box. `.m-mixb.on` below still wins over both — equal
+   specificity to this, and later in the file. */
+.m-bar .m-mixb {
+  min-height: 40px; padding: 0 14px;
+  background: var(--panel-2); color: var(--mid); font-size: 15px; white-space: nowrap;
+  border: 0; border-left: 1px solid var(--rule); border-radius: 0;
+}
+.m-mixb:first-child { border-left: 0; }
+.m-mixb.on { background: var(--photos); color: var(--bg); font-weight: 600; }
+
+/* Where the kept files are. A path is the one thing on this wall meant to be
+   copied down rather than read, so it is set in the monospace the rest of the
+   page never uses and left selectable. */
+.m-wpaths { display: flex; flex-direction: column; gap: 8px; }
+.m-wrow { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.m-wwhat { flex: 0 0 130px; font-size: 15px; color: var(--mid); }
+.m-wpath {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px; color: var(--text); user-select: text;
+  background: var(--panel-2); border: 1px solid var(--rule-soft);
+  border-radius: 6px; padding: 3px 8px; word-break: break-all;
+}
 .m-tab .m-fcount { color: inherit; opacity: .7; }
 /* ---- the folder tree ----
    The shape Windows draws a disk in, because that is the shape everybody in
@@ -1673,7 +2344,7 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 /* ================= arranging a view (the header gear) =================
    Same wheel as every panel gear, in the whole-screen row: this one arranges
    the view rather than anything inside one panel. */
-.hd-tools > button.gear { font-size: 22px; }
+.hd-tools > button.gear { font-size: 20px; }
 
 /* A dialog sized to its three options, not a full-screen takeover: the wall
    behind it stays legible, which is what tells you the arrangement you are
@@ -1748,24 +2419,25 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 }
 .lay-note { font-size: 16px; color: var(--mid); }
 
-/* ================== the three header sheets =====================
-   Weather-by-the-hour (the band), the week (the "now" block) and Time (the
-   clock). One shape between them: the header is a summary and the sheet is the
-   long version, opened by tapping the summary itself. */
-#wx-overlay, #wk-overlay, #ts-overlay {
+/* =================== the two header sheets ======================
+   Weather (the band and the "now" block, which are two summaries of one
+   forecast and so open one report) and Time (the clock). One shape between
+   them: the header is a summary and the sheet is the long version, opened by
+   tapping the summary itself. */
+#wx-overlay, #ts-overlay {
   position: fixed; inset: 16px; z-index: 50;
   background: var(--panel); border: 1px solid var(--edge); border-radius: var(--radius);
   display: none; flex-direction: column; overflow: hidden;
 }
-#wx-overlay.open, #wk-overlay.open, #ts-overlay.open { display: flex; }
-#wx-overlay > header, #wk-overlay > header, #ts-overlay > header {
+#wx-overlay.open, #ts-overlay.open { display: flex; }
+#wx-overlay > header, #ts-overlay > header {
   flex: 0 0 auto; height: 92px; display: flex; align-items: center; gap: 16px;
   padding: 0 16px 0 28px;
 }
-#wx-overlay h2, #wk-overlay h2, #ts-overlay h2 { margin: 0; font-size: 32px; font-weight: 400; }
-#wx-overlay .sub, #wk-overlay .sub, #ts-overlay .sub { font-size: 16px; color: var(--dim); }
-#wx-overlay .spacer, #wk-overlay .spacer, #ts-overlay .spacer { flex: 1; }
-#wx-close, #wk-close, #ts-close {
+#wx-overlay h2, #ts-overlay h2 { margin: 0; font-size: 32px; font-weight: 400; }
+#wx-overlay .sub, #ts-overlay .sub { font-size: 16px; color: var(--dim); }
+#wx-overlay .spacer, #ts-overlay .spacer { flex: 1; }
+#wx-close, #ts-close {
   height: 60px; min-width: 150px; padding: 0 26px;
   border: 1px solid #3d3a2c; border-radius: var(--radius-sm);
   color: var(--text); font-size: 18px; font-weight: 500;
@@ -1780,21 +2452,21 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 .hd-clock.tappable:active, .hd-now.tappable:active { background: var(--panel-2); }
 
 /* What it is doing right now, large, before any of the detail below it. */
-#wx-now, #wk-now {
+#wx-now {
   flex: 0 0 auto; display: flex; align-items: center; gap: 20px;
   padding: 0 28px 14px;
 }
-#wx-now .n-ico, #wk-now .n-ico { width: 76px; height: 76px; flex: 0 0 auto; }
-#wx-now .n-temp, #wk-now .n-temp {
+#wx-now .n-ico { width: 76px; height: 76px; flex: 0 0 auto; }
+#wx-now .n-temp {
   font-size: 64px; font-weight: 500; line-height: 1; letter-spacing: -2px;
   font-variant-numeric: tabular-nums;
 }
-#wx-now .n-desc, #wk-now .n-desc { font-size: 22px; }
-#wx-now .n-sub, #wk-now .n-sub {
+#wx-now .n-desc { font-size: 22px; }
+#wx-now .n-sub {
   display: flex; gap: 14px; font-size: 17px; color: var(--dim); margin-top: 4px;
 }
-#wx-now .n-feels b, #wk-now .n-feels b { color: var(--text); font-weight: 500; }
-#wx-now .n-rain, #wk-now .n-rain { color: var(--birds); }
+#wx-now .n-feels b { color: var(--text); font-weight: 500; }
+#wx-now .n-rain { color: var(--birds); }
 
 /* ---- the readings for the current hour ----
    One tile each, and only for the ones that came back: a row of "—" is a row
@@ -1894,28 +2566,48 @@ kitchen-stream video { width: 100%; height: 100%; object-fit: contain; backgroun
 .wx-none { margin: 0; padding: 10px 0; font-size: 16px; color: var(--dim); }
 .wx-cap { flex: 0 0 auto; padding: 16px 28px 0; font-size: 14px; color: var(--dim); }
 
-/* Fixed rather than greedy: the hour-by-hour rows underneath are the part of
-   this sheet worth scrolling, so the chart takes a shape and no more. */
-#wx-hours {
-  flex: 0 0 auto; height: 168px; display: flex; align-items: stretch; gap: 5px;
-  padding: 10px 28px 12px;
+/* A 48-hour bar chart stood here, 168px of it. It was a shape rather than a
+   reading — nobody asks what the silhouette of Tuesday looks like — and it was
+   taking that height off the two lists that answer what people do ask. */
+/* The hours and the days, side by side and both in view: they are the two
+   questions this kitchen asks the weather, and one under the other meant
+   scrolling past an evening to find out about Tuesday. Each list scrolls
+   inside its own column, so neither moves the other. */
+#wx-split {
+  flex: 1 1 auto; min-height: 0; display: flex; gap: 20px; padding-bottom: 8px;
 }
-.wx-h { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
-        align-items: center; gap: 8px; }
-/* Night tints the chart area only. Tinting the whole column, labels and all,
-   reads as a rendering fault rather than as darkness. */
-.wx-h.night .col { background: #191712; border-radius: 5px; }
-.wx-h .t { font-size: 16px; font-variant-numeric: tabular-nums; }
-.wx-h .col { flex: 1; width: 100%; min-height: 0; display: flex; align-items: flex-end;
-             padding: 0 18%; }
-.wx-h .col > i {
-  width: 100%; border-radius: 4px; background: var(--track);
-  display: flex; align-items: flex-end; overflow: hidden;
+#wx-split > section {
+  flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column;
 }
-/* Rain fills the foot of the temperature bar, in the same blue the band uses
-   for it — green here read as a second temperature. */
-.wx-h .col > i > b { width: 100%; background: var(--birds); display: block; }
-.wx-h .h { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+#wx-split #wx-list, #wx-split #wk-week {
+  flex: 1 1 0; min-height: 0; overflow-y: auto;
+}
+/* A day's row was drawn for the whole width of the sheet; in half of it the
+   sun times ran off the end. Narrower columns, and the words give way before
+   the numbers do — the description is the one cell that can shrink, because
+   "Drizzle" abbreviates and 06:27 does not. */
+#wx-split .wx-wday {
+  grid-template-columns: 132px 40px minmax(0, 1fr) 52px 58px 96px 128px;
+  gap: 10px; padding: 10px 12px;
+}
+#wx-split .wx-wday .w-name { font-size: 17px; }
+#wx-split .wx-wday .w-desc { font-size: 15px; overflow: hidden; text-overflow: ellipsis;
+                             white-space: nowrap; }
+#wx-split .wx-wday .w-temp { font-size: 23px; }
+#wx-split .wx-wday .w-ico { width: 38px; height: 38px; }
+#wx-split .wx-wday .w-feels, #wx-split .wx-wday .w-sun { font-size: 13px; white-space: nowrap; }
+/* The same trim for the hours: in half the width their description was down to
+   "Overca…" with 119px to say it in. Ten fixed columns of numbers give a
+   little each, and the words take what that frees. */
+#wx-split .wx-hr {
+  grid-template-columns: 62px 32px 58px 86px minmax(0, 1fr) 54px 52px 66px 78px 78px;
+  gap: 8px; padding: 7px 12px;
+}
+#wx-split .wx-hr .hr-i { width: 28px; height: 28px; }
+#wx-split .wx-hr .hr-tt { font-size: 21px; }
+#wx-split .wx-hr .hr-fl,
+#wx-split .wx-hr .hr-d,
+#wx-split .wx-hr .hr-c { font-size: 14px; }
 #wk-foot { flex: 0 0 auto; height: 104px; display: flex; align-items: center; }
 #wk-foot > div { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 28px; }
 #wk-foot .cap { font-size: 14px; color: var(--dim); }

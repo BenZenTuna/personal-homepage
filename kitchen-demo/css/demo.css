@@ -16,17 +16,33 @@
 }
 
 /* ---- the header chip ----
-   Sized to its word rather than to the 46px squares beside it, and drawn in
-   the amber the photographs use, so it reads as a label on the screen rather
-   than as another control of it. */
+   Drawn in the amber the photographs use, so it reads as a label on the screen
+   rather than as another control of it.
+
+   It sits under Live, in a column of its own, and it is no wider than Live is
+   for a reason that is arithmetic rather than taste. .hd-right is a fixed box
+   — 150px, from --nav-right — and the six view buttons are placed from its
+   edge, so that they are at the same place on the glass in every view. A flex
+   item cannot shrink under its own content, so anything in there wider than
+   the box has left over (150 - 8 padding - 88 of tools - 10 gap = 44px) pushes
+   the views along by the difference. At 14px and 14px of padding this chip did
+   exactly that, by 6px. Measured, not guessed: `node probe.js` reads the nav's
+   own rectangle back out of the browser. */
+.demo-corner {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 6px; flex: 0 0 auto; min-width: 0;
+}
 #demo-pill {
-  width: auto !important;
-  padding: 0 14px;
-  font-size: 14px !important;
-  letter-spacing: 1.5px;
+  width: 42px !important;
+  height: 21px;
+  padding: 0;
+  font-size: 10px !important;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
+  text-align: center;
+  border-radius: var(--radius-sm);
   color: var(--photos) !important;
-  border-color: color-mix(in srgb, var(--photos) 45%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--photos) 45%, transparent) !important;
   background: color-mix(in srgb, var(--photos) 10%, var(--panel-2)) !important;
 }
 

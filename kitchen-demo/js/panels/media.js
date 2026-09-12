@@ -24,6 +24,15 @@
 // through what has already been shown rather than asking the server, because
 // "the previous photograph" is not a question a shuffled slideshow can answer.
 
+/* What the show draws from. One setting with two controls — the bar in Browse
+   and a row in the gear — so the words live here and the two cannot drift into
+   describing the same thing differently. */
+const MIX_LEVELS = [
+  ['new', 'Only new, cached'],
+  ['mix', 'Cached & liked'],
+  ['liked', 'Only liked'],
+];
+
 const HISTORY_MAX = 40;   // photographs kept for ‹; a wall screen runs for weeks
 // A wall screen that has been paused is a wall screen showing one photograph
 // for the rest of the week. Somebody stopped on a picture, looked at it, and
@@ -47,10 +56,22 @@ const ICON_PLAY = '<svg class="m-gl" viewBox="0 0 24 24" aria-hidden="true">'
    button says which of the two it is about to do without a word on it. */
 const ICON_HEART = '<svg class="m-gl m-hrt" viewBox="0 0 24 24" aria-hidden="true">'
   + '<path d="M12 20.2 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9A4.6 4.6 0 1 1 19.4 13Z"/></svg>';
+/* And its opposite: this one never shows again, and its path goes on a list to
+   delete from the NAS later. Outlined and filled the same way the heart is. */
+const ICON_THUMBDOWN = '<svg class="m-gl m-hrt" viewBox="0 0 24 24" aria-hidden="true">'
+  + '<path d="M14.2 3.5H7.4a2.4 2.4 0 0 0-2.3 1.8L3.6 11a2.4 2.4 0 0 0 2.3 3h4.3l-.8 3.4a2.1 2.1 '
+  + '0 0 0 2 2.6c.4 0 .7-.2.9-.5l3.9-6.1Z"/>'
+  + '<path d="M17.6 3.5h1.6a1.6 1.6 0 0 1 1.6 1.6v7a1.6 1.6 0 0 1-1.6 1.6h-1.6Z"/></svg>';
 
 export default {
   id: 'media',
   title: 'Photos',
+  // A photograph is rarely 16:9; full screen leaves a band down each side.
+  // app.js puts the hours in it. See sideColumn() there.
+  sideWeather: true,
+  // Full screen, the photograph is the screen: no card round it, and the
+  // header floats on it. See .bleed in app.css.
+  fullBleed: true,
   // Leaving the page stops the slide timer: a picture fetched for a tab that
   // is behind Netflix is a read off the NAS that nothing displays.
   pauseWhenUnseen: true,
@@ -81,18 +102,21 @@ export default {
     // mid-browse comes back where it was rather than at the top of the tree.
     this.open = new Set(ctx.uiState.media_open || []);
     this.liked = new Map();  // photographs kept, by root/folder/name
+    this.disliked = new Map(); // ...and the ones never to show again, the same way
     this.filter = '';
 
     body.innerHTML = `
       <div class="m-slideshow"><img class="m-img a"><img class="m-img b">
+        <video class="m-vid" muted playsinline preload="auto" hidden></video>
         <div class="m-caption">
           <span class="m-cap-name"></span>
           <span class="m-cap-path"></span>
           <span class="m-cap-note" hidden></span>
         </div>
-        <div class="m-paused" hidden>Paused</div>
+        <div class="m-paused" hidden></div>
         <button class="m-big" hidden aria-label="pause">${ICON_PAUSE}</button>
         <div class="m-controls">
+          <button class="m-ctl m-dislike" aria-label="never show this one again">${ICON_THUMBDOWN}</button>
           <button class="m-ctl m-like" aria-label="keep this photograph">${ICON_HEART}</button>
           <button class="m-ctl m-prev" aria-label="the photo before this one">‹</button>
           <button class="m-ctl m-next" aria-label="the next photo">›</button>
@@ -104,6 +128,8 @@ export default {
     this.elBrowse = body.querySelector('.m-browse');
     this.elView = body.querySelector('.m-view');
     this.imgs = [body.querySelector('.m-img.a'), body.querySelector('.m-img.b')];
+    this.vid = body.querySelector('.m-vid');
+    this.clip = null;        // the clip on screen, while it is playing
     this.caption = body.querySelector('.m-caption');
     this.front = 0;
 
@@ -118,7 +144,8 @@ export default {
       if (e.target.closest('.m-controls') || e.target.closest('.m-big')) return;
       this.showBig();
     };
-    this.elSlide.querySelector('.m-like').onclick = () => this.toggleLike();
+    this.elSlide.querySelector('.m-like').onclick = () => this.toggleKept('liked');
+    this.elSlide.querySelector('.m-dislike').onclick = () => this.toggleKept('disliked');
     this.elSlide.querySelector('.m-prev').onclick = () => this.prevSlide();
     this.elSlide.querySelector('.m-next').onclick = () => this.nextSlide(true);
     this.elSlide.querySelector('.m-big').onclick = () => this.setPaused(!this.paused);
@@ -136,7 +163,10 @@ export default {
     ctx.bus.on('photo_cache', (c) => {
       // The bus carries live progress, so its count is newer than the
       // `available` figure the status fetch left behind.
-      this.cache = { ...this.cache, ...c, available: c.count };
+      // `available` is pictures, not items: overwriting it with the total is
+      // what made a batch of 500 pictures and 10 clips read "510 pictures
+      // ready" with no mention of a clip anywhere.
+      this.cache = { ...this.cache, ...c, available: c.photos ?? c.count };
       this.showCount();
       this.renderCacheBox();
     });
@@ -152,16 +182,17 @@ export default {
     this.browseBtn = ctx.addHeaderButton(this.id, 'Browse', () =>
       this.mode === 'slideshow' ? this.openBrowse() : this.openSlideshow());
     this.setMode('slideshow');
-    // Choose is the same tree, opened on the folders already ticked — the two
-    // used to be two screens onto one list, which is why one of them could
-    // quietly hide the other's folders.
-    ctx.addHeaderButton(this.id, 'Choose', () => this.openBrowse('chosen'));
+    // There is no Choose button beside it. Choose *is* the tree Browse opens,
+    // on the Chosen tab, and a header button claiming to be a second way in
+    // read as a second screen — the thing the one-tree rewrite was for. The
+    // tab carries the count, which the button never did.
     const gear = ctx.addHeaderButton(this.id, '⚙', () => this.openSettings());
     gear.className = 'gear';
     gear.title = 'slideshow options';
     this.showCount();
     this.applySettings();
-    this.loadLiked();
+    this.loadKept('liked');
+    this.loadKept('disliked');
     // No restart() here: onShow() from the layout engine owns the timer, the
     // same contract camera.js keeps for its stream element. Starting it in
     // init() meant the Cooking preset — which never shows this panel — still
@@ -188,6 +219,10 @@ export default {
       im.style.objectFit = s.fit || 'contain';
       im.style.transitionDuration = `${s.transition_s ?? 1.2}s`;
     });
+    if (this.vid) {
+      this.vid.style.objectFit = s.fit || 'contain';
+      this.vid.style.transitionDuration = `${s.transition_s ?? 1.2}s`;
+    }
     this.caption.hidden = s.show_caption === false;
   },
 
@@ -231,7 +266,8 @@ export default {
   bumpTimer() {
     clearInterval(this.timer);
     this.timer = null;
-    if (!this.live || this.paused) return;
+    // A clip runs to its own length and asks for the next slide when it ends.
+    if (!this.live || this.paused || this.clip) return;
     const every = (this.settings.interval_s || 10) * 1000;
     this.timer = setInterval(() => { if (this.mode === 'slideshow') this.nextSlide(); }, every);
   },
@@ -239,6 +275,12 @@ export default {
   setPaused(paused) {
     this.paused = paused;
     this.bumpTimer();          // stops it when paused, restarts it when not
+    // Held means held: a clip left running under a paused show is the one
+    // thing on this panel that would carry on moving after the button said no.
+    if (this.clip && this.vid) {
+      if (paused) { try { this.vid.pause(); } catch { /* not loaded */ } }
+      else this.vid.play().catch(() => this.endClip(false));
+    }
 
     /* Held, and nobody came back to it. The wall would otherwise show one
        photograph until somebody noticed, which on a screen nobody sits at is
@@ -258,14 +300,22 @@ export default {
   showBig() {
     clearTimeout(this.bigTimer);
     this.bigTimer = null;
-    this.elSlide.querySelector('.m-big').hidden = false;
+    this.setBigShown(true);
     if (!this.paused) {
       this.bigTimer = setTimeout(() => {
-        const b = this.elSlide.querySelector('.m-big');
-        if (!this.paused) b.hidden = true;
+        if (!this.paused) this.setBigShown(false);
       }, BIG_SHOW_MS);
     }
     this.paintControls();
+  },
+
+  /* The button and the words under it are one statement — "tap to pause", or
+     "paused, tap to continue" — so they appear and withdraw together. A ॥ on
+     its own was read as "this is paused" as often as "press to pause", and a ▶
+     on a photograph reads as a video that has stopped, which it is not. */
+  setBigShown(shown) {
+    this.elSlide.querySelector('.m-big').hidden = !shown;
+    this.elSlide.querySelector('.m-paused').hidden = !shown;
   },
 
   paintControls() {
@@ -273,28 +323,33 @@ export default {
     big.innerHTML = this.paused ? ICON_PLAY : ICON_PAUSE;
     big.setAttribute('aria-label', this.paused ? 'carry on' : 'pause');
     big.classList.toggle('is-play', this.paused);
-    this.elSlide.querySelector('.m-paused').hidden = !this.paused;
+    this.elSlide.querySelector('.m-paused').textContent = this.paused
+      ? 'Paused — tap to continue the slideshow'
+      : 'Tap to pause the slideshow';
     this.elSlide.classList.toggle('m-is-paused', this.paused);
     // Nothing has been shown before the first one: a ‹ that does nothing when
     // pressed teaches people to stop pressing the row.
     this.elSlide.querySelector('.m-prev').disabled = this.histAt <= 0;
   },
 
-  /* Stepping by hand pauses. Somebody walking the show back to a photograph is
-     not asking for it to slide on ten seconds later, and the alternative — a
-     tap that moves and then keeps moving — is why the ‹ was unusable. */
+  /* Stepping by hand does not pause. ‹ and › move the show and it carries on
+     from there, with a full interval from the step rather than the remainder
+     of the last picture's — which is what bumpTimer() is for. Stepping used to
+     pause, and it was one control doing another's job: ॥ in the middle of the
+     picture is the thing that means "stop here", it says so, and it is the
+     only way in or out of held. */
   prevSlide() {
     if (this.histAt <= 0) return;
-    this.setPaused(true);
     this.histAt -= 1;
     this.showItem(this.history[this.histAt]);
+    this.bumpTimer();
   },
 
   async nextSlide(manual) {
     // Nobody is looking: another browser tab, or a minimised window. Asking
     // the server for a picture here is a read off the NAS for no viewer.
     if (document.hidden) return;
-    if (manual) this.setPaused(true);
+    if (manual) this.bumpTimer();   // a full interval from the step, not a pause
 
     // Walked back with ‹ and now going forward again: the next picture is one
     // we have already got, and asking the server would skip past it.
@@ -327,10 +382,72 @@ export default {
       this.setCaption(item);
     };
     back.onerror = () => {}; // a single unreadable file must not stop the show
-    back.src = item.url;
+    // A clip crossfades in as its poster first and plays over the top, so the
+    // transition is the same one every other slide gets and there is never a
+    // black rectangle between two photographs.
+    back.src = (item.kind === 'video' && item.thumb_url) ? item.thumb_url : item.url;
     this.slide = item;
+    this.playClip(item);
     this.paintControls();
-    this.paintLike();
+    this.paintKept();
+  },
+
+  /* A clip in the show plays itself: muted, once, and then the show moves on
+     of its own accord. Muted because this is a wall in a kitchen and a
+     photograph that suddenly speaks is a photograph nobody wants; once,
+     because the interval belongs to pictures and a clip's length is its own.
+
+     Everything here has a way out. A clip that will not play, will not load,
+     or quietly stops firing events hands the slide back to the ordinary timer
+     rather than leaving one frame on the wall until somebody notices — which
+     on a screen nobody sits at is measured in days. */
+  playClip(item) {
+    const v = this.vid;
+    if (!v) return;
+    clearTimeout(this.clipGuard);
+    this.clipGuard = null;
+    this.clip = null;
+    v.onended = v.onerror = v.oncanplay = null;
+    v.classList.remove('show');
+    try { v.pause(); } catch { /* nothing loaded */ }
+
+    if (!item || item.kind !== 'video') {
+      v.hidden = true;
+      v.removeAttribute('src');
+      v.load();          // drops the buffered clip; a wall runs for weeks
+      return;
+    }
+
+    this.clip = item;
+    v.hidden = false;
+    v.onended = () => this.endClip(true);
+    v.onerror = () => this.endClip(false);
+    v.oncanplay = () => v.classList.add('show');
+    v.src = item.url;
+    // The backstop for a clip whose events never arrive. Its own length plus
+    // slack when the index probed one — and five minutes when it did not,
+    // because a short guard over an unknown duration does not protect the
+    // show, it truncates it: half the clips in this library are FILM
+    // derivatives the probe never read a duration from.
+    const guard = item.duration ? (item.duration + 8) * 1000 : 300000;
+    this.clipGuard = setTimeout(() => this.endClip(true), Math.min(Math.max(guard, 15000), 300000));
+    this.bumpTimer();    // no picture interval runs underneath a clip
+    if (!this.paused) v.play().catch(() => this.endClip(false));
+  },
+
+  /* Done with the clip on screen: `advance` says whether it earned the next
+     slide (it played, or it timed out) or merely failed, in which case the
+     poster stays for one ordinary interval like any other picture. */
+  endClip(advance) {
+    if (!this.clip) return;
+    clearTimeout(this.clipGuard);
+    this.clipGuard = null;
+    this.clip = null;
+    this.vid.classList.remove('show');
+    this.vid.hidden = true;
+    try { this.vid.pause(); } catch { /* nothing loaded */ }
+    this.bumpTimer();
+    if (advance && !this.paused) this.nextSlide();
   },
 
   /* Which photograph this is, said the way you would have to say it to go and
@@ -504,7 +621,7 @@ export default {
       .map((a) => this.keyOf(a.root, a.folder)));
 
     if (!this.libs.some((l) => l.root === this.tab)
-        && this.tab !== 'chosen' && this.tab !== 'liked') {
+        && !['chosen', 'liked', 'disliked'].includes(this.tab)) {
       this.tab = this.libs.length ? this.libs[0].root : 'chosen';
     }
   },
@@ -616,7 +733,7 @@ export default {
 
   tabs() {
     return [...this.libs.map((l) => [l.root, l.label]),
-            ['chosen', 'Chosen'], ['liked', 'Liked']];
+            ['chosen', 'Chosen'], ['liked', 'Liked'], ['disliked', 'Disliked']];
   },
 
   /* How many folders the library actually holds, not how many rows the tree
@@ -625,6 +742,7 @@ export default {
   tabCount(k) {
     if (k === 'chosen') return this.picked.size;
     if (k === 'liked') return this.liked.size;
+    if (k === 'disliked') return this.disliked.size;
     return this.folders.filter((f) => f.root === k).length;
   },
 
@@ -640,6 +758,7 @@ export default {
       <div class="m-bar">
         <button class="m-back">Slideshow</button>
         <span class="m-title"></span>
+        <span class="m-mix" role="group" aria-label="what the slideshow draws from"></span>
         <span class="spacer" style="flex:1"></span>
         <span class="m-saved" hidden>Saved</span>
         <input class="m-filter" type="search" placeholder="Filter by name or path"
@@ -655,7 +774,27 @@ export default {
     // the keyboard focus out of this very box between two keystrokes.
     const box = this.elBrowse.querySelector('.m-filter');
     box.oninput = () => { this.filter = box.value.trim().toLowerCase(); this.paintTree(); };
+    this.renderMix();
     this.renderTabs();
+  },
+
+  /* What reaches the wall, in the bar at the top rather than down among the
+     tabs. The tabs answer "what is there" — a library, the chosen folders, the
+     kept ones — and this answers "which of it plays", which is a different
+     question about a different screen. Sat at the end of that row it read as a
+     seventh tab. */
+  renderMix() {
+    const box = this.elBrowse.querySelector('.m-mix');
+    if (!box) return;
+    const mix = this.settings.liked_mix || 'mix';
+    box.innerHTML = MIX_LEVELS.map(([k, label]) =>
+      `<button class="m-mixb${mix === k ? ' on' : ''}" data-m="${k}">${label}</button>`).join('');
+    box.querySelectorAll('.m-mixb').forEach((b) => {
+      b.onclick = () => {
+        this.setSetting('liked_mix', b.dataset.m);
+        this.renderMix();      // the lit one moves at once, not on the reply
+      };
+    });
   },
 
   renderTabs() {
@@ -729,7 +868,7 @@ export default {
     const box = this.elBrowse.querySelector('.m-items');
     if (!box) return;
     this.renderHint();
-    if (this.tab === 'liked') return this.paintLikedTab(box);
+    if (this.tab === 'liked' || this.tab === 'disliked') return this.paintKeptTab(box, this.tab);
 
     const rows = this.visibleRows();
     const title = this.elBrowse.querySelector('.m-title');
@@ -793,7 +932,12 @@ export default {
     const el = this.elBrowse.querySelector('.m-hint');
     if (!el) return;
     el.textContent = this.tab === 'liked'
-      ? `${this.liked.size} photograph${this.liked.size === 1 ? '' : 's'} kept — tap ♥ on the wall to add one.`
+      ? `${this.liked.size} photograph${this.liked.size === 1 ? '' : 's'} kept. `
+        + 'Their original NAS paths and names are listed in data/liked.json, '
+        + 'and the copies are in data/liked/.'
+      : this.tab === 'disliked'
+      ? `${this.disliked.size} photograph${this.disliked.size === 1 ? '' : 's'} the wall skips. `
+        + 'Their NAS paths are listed in data/disliked.json, for deleting later.'
       : this.picked.size
         ? `${this.picked.size} folder${this.picked.size === 1 ? '' : 's'} ticked — only these appear on the wall.`
         : 'Nothing ticked, so the whole library is shown. Tick a folder to narrow it down.';
@@ -823,51 +967,75 @@ export default {
     });
   },
 
-  /* ---------------- liked photographs ----------------
-     A copy on this server's own disk, under the picture's own name. The NAS
-     can sleep, be re-indexed, or have the folder moved out from under it; a
-     liked photograph is a file and stays one. */
+  /* ---------------- kept photographs: liked, and disliked ----------------
+     One mechanism, two verbs. Either way it is a copy on this server's own
+     disk under the picture's own name, a row in a JSON file, and a tab in
+     Browse. The NAS can sleep, be re-indexed, or have the folder moved out
+     from under it; a kept photograph is a file and stays one.
+
+     Disliked is the one that is also a list of work: every row carries the
+     photograph's whole NAS path, so `data/disliked.json` is what a deletion
+     from the NAS can be driven from later. Until then the wall simply stops
+     showing it, and dropping it from the Disliked tab puts it back in the show
+     and takes it off the list. */
   likeKey(item) {
     return item ? `${item.root}\u0000${item.folder || ''}/${item.name}` : '';
   },
 
-  async loadLiked() {
+  kept(kind) { return kind === 'disliked' ? this.disliked : this.liked; },
+
+  async loadKept(kind) {
     try {
-      const data = await (await fetch('/api/media/liked')).json();
-      this.liked = new Map((data.items || []).map((i) => [this.likeKey(i), i]));
-    } catch { /* the heart simply stays unlit */ }
-    this.paintLike();
+      const data = await (await fetch(`/api/media/${kind}`)).json();
+      const map = new Map((data.items || []).map((i) => [this.likeKey(i), i]));
+      if (kind === 'disliked') this.disliked = map; else this.liked = map;
+    } catch { /* the button simply stays unlit */ }
+    this.paintKept();
   },
 
-  paintLike() {
-    const btn = this.elSlide?.querySelector('.m-like');
-    if (!btn) return;
+  paintKept() {
     const item = this.slide;
-    const on = this.liked.has(this.likeKey(item));
-    btn.classList.toggle('on', on);
-    btn.disabled = !item || item.kind === 'video';
-    btn.setAttribute('aria-label', on ? 'kept — tap to drop it' : 'keep this photograph');
+    for (const [kind, sel, set, unset] of [
+      ['liked', '.m-like', 'kept — tap to drop it', 'keep this one'],
+      ['disliked', '.m-dislike', 'on the delete list — tap to take it off',
+        'never show this one again'],
+    ]) {
+      const btn = this.elSlide?.querySelector(sel);
+      if (!btn) continue;
+      const on = this.kept(kind).has(this.likeKey(item));
+      btn.classList.toggle('on', on);
+      // Clips can be kept too now. They were excluded here and refused by the
+      // server as well, so a clip in the show was the one slide where the two
+      // buttons in the corner did nothing and never said why.
+      btn.disabled = !item;
+      btn.setAttribute('aria-label', on ? set : unset);
+    }
   },
 
-  async toggleLike() {
+  async toggleKept(kind) {
     const item = this.slide;
-    if (!item || item.kind === 'video') return;
-    const btn = this.elSlide.querySelector('.m-like');
+    if (!item) return;
+    const btn = this.elSlide.querySelector(kind === 'disliked' ? '.m-dislike' : '.m-like');
     btn.classList.add('busy');
+    let now = null;
     try {
-      const res = await (await fetch('/api/media/like', {
+      const res = await (await fetch(`/api/media/${kind === 'disliked' ? 'dislike' : 'like'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, root: item.root, folder: item.folder, name: item.name }),
       })).json();
-      if (res.liked === true) this.liked.set(this.likeKey(item), res.item);
-      else if (res.liked === false) this.liked.delete(this.likeKey(item));
+      now = kind === 'disliked' ? res.disliked : res.liked;
+      if (now === true) this.kept(kind).set(this.likeKey(item), res.item);
+      else if (now === false) this.kept(kind).delete(this.likeKey(item));
       else this.flashCaption(res.error || 'could not keep that one');
     } catch {
       this.flashCaption('the kitchen server could not be reached');
     }
     btn.classList.remove('busy');
-    this.paintLike();
+    this.paintKept();
+    // "Never show this one again" is answered now, not in eight seconds' time.
+    // A step, exactly like ›, so it does not stop the show either.
+    if (kind === 'disliked' && now === true) this.nextSlide();
   },
 
   /* The panel has no room for a toast, and the caption is the one line on the
@@ -881,31 +1049,42 @@ export default {
     this._noteTimer = setTimeout(() => { el.hidden = true; }, 3000);
   },
 
-  paintLikedTab(box) {
-    const items = [...this.liked.values()]
-      .sort((a, b) => (b.liked_at || 0) - (a.liked_at || 0));
+  paintKeptTab(box, kind) {
+    const map = this.kept(kind);
+    const stamp = kind === 'disliked' ? 'disliked_at' : 'liked_at';
+    const items = [...map.values()].sort((a, b) => (b[stamp] || 0) - (a[stamp] || 0));
     const title = this.elBrowse.querySelector('.m-title');
-    if (title) title.textContent = items.length ? `${items.length} kept` : '';
+    if (title) {
+      title.textContent = items.length
+        ? `${items.length} ${kind === 'disliked' ? 'on the delete list' : 'kept'}` : '';
+    }
     if (!items.length) {
-      box.innerHTML = '<div class="placeholder">Nothing kept yet.<br>'
-        + '<span style="font-size:14px">Tap the heart on a photograph in the show '
-        + 'and a copy is saved here.</span></div>';
+      box.innerHTML = kind === 'disliked'
+        ? '<div class="placeholder">Nothing on the delete list.<br>'
+          + '<span style="font-size:14px">Tap the thumb down on a photograph in the '
+          + 'show: the wall stops showing it, and its NAS path is written to '
+          + 'data/disliked.json for deleting later.</span></div>'
+        : '<div class="placeholder">Nothing kept yet.<br>'
+          + '<span style="font-size:14px">Tap the heart on a photograph in the show: '
+          + 'a copy is saved in data/liked/ and its NAS path and name are written '
+          + 'to data/liked.json.</span></div>';
       return;
     }
     box.innerHTML = `<div class="m-grid thumbs">${items.map((i) => `
       <button class="m-thumb" data-f="${encodeURIComponent(i.file)}">
         <img loading="lazy" src="${this.esc(i.thumb_url)}" alt="">
-        <span class="m-unlike" data-a="drop" aria-label="stop keeping this">✕</span>
+        <span class="m-unlike" data-a="drop" aria-label="${kind === 'disliked'
+          ? 'take it off the list and show it again' : 'stop keeping this'}">✕</span>
       </button>`).join('')}</div>`;
     box.querySelectorAll('.m-thumb').forEach((b) => {
       const file = decodeURIComponent(b.dataset.f);
       const item = items.find((i) => i.file === file);
       b.onclick = async (e) => {
         if (e.target.closest('[data-a="drop"]')) {
-          await fetch(`/api/media/liked/${encodeURIComponent(file)}`, { method: 'DELETE' })
+          await fetch(`/api/media/${kind}/${encodeURIComponent(file)}`, { method: 'DELETE' })
             .catch(() => {});
-          this.liked.delete(this.likeKey(item));
-          this.paintLike();
+          map.delete(this.likeKey(item));
+          this.paintKept();
           this.renderTabs();
           return;
         }
@@ -919,7 +1098,8 @@ export default {
   settingRows() {
     return [
       { key: 'interval_s', label: 'Time on screen', hint: 'how long each picture stays up',
-        options: [[3, '3s'], [5, '5s'], [10, '10s'], [30, '30s'], [60, '1 min'], [300, '5 min']] },
+        options: [[3, '3s'], [5, '5s'], [10, '10s'], [15, '15s'], [20, '20s'],
+                  [30, '30s'], [60, '1 min'], [300, '5 min']] },
       { key: 'order', label: 'Order',
         options: [['shuffle', 'Shuffle'], ['newest', 'Newest first'], ['oldest', 'Oldest first']] },
       { key: 'recent_ratio', label: 'Favour recent photos',
@@ -934,9 +1114,12 @@ export default {
         // A cached batch is photographs: a few hundred clips would be tens of
         // gigabytes. Saying so here is the only place it can be noticed.
         hint: (s) => (s.source === 'cache'
-          ? 'cached batches hold photographs only — choose NAS live for clips'
-          : 'clips appear as their first frame, tap to play'),
+          ? 'clips are cached too, up to the budget set below'
+          : 'clips play from the NAS as they come round'),
         options: [[false, 'Photos only'], [true, 'Include videos']] },
+      { key: 'liked_mix', label: 'Liked pictures',
+        hint: 'only liked plays the copies on this server, so it keeps going with the NAS asleep',
+        options: MIX_LEVELS },
       { key: 'show_caption', label: 'Caption',
         hint: 'the file name, and where it sits on the NAS',
         options: [[false, 'Hidden'], [true, 'Name and path']] },
@@ -947,7 +1130,20 @@ export default {
         options: [['cache', 'NAS cache'], ['live', 'NAS live']] },
       { key: 'cache_size', label: 'Pictures per batch',
         hint: 'downloaded together, then served from this server',
-        options: [[0, 'Off'], [200, '200'], [350, '350'], [500, '500']] },
+        options: [[0, 'Off'], [200, '200'], [350, '350'], [500, '500'],
+                  [1000, '1000'], [2000, '2000'], [3000, '3000']] },
+      // Clips are counted in bytes, not in files: two hundred photographs are
+      // a predictable eighty megabytes and two hundred clips are anything from
+      // one gigabyte to forty. A budget is the only number that means the same
+      // thing every night. Anything on its own larger than the whole budget is
+      // left on the NAS rather than eating the batch.
+      { key: 'video_cache_mb', label: 'Clips per batch',
+        hint: (s) => (s.include_videos
+          ? 'a size to fill, not a count — one clip bigger than this is skipped'
+          : 'switch Video clips on above to cache any'),
+        when: (s) => s.cache_size > 0,
+        options: [[0, 'Off'], [100, '100 MB'], [250, '250 MB'], [500, '500 MB'],
+                  [1024, '1 GB'], [2048, '2 GB'], [5120, '5 GB']] },
       { key: 'cache_refresh_h', label: 'New batch',
         hint: 'the old batch is deleted when the new one lands',
         when: (s) => s.cache_size > 0,
@@ -968,10 +1164,50 @@ export default {
         <span class="m-saved" hidden>Saved</span>
       </div>
       <div class="m-opts"></div>
-      <div class="m-cache"></div>`;
+      <div class="m-cache"></div>
+      <div class="m-where"></div>`;
     this.elBrowse.querySelector('.m-back').onclick = () => this.openSlideshow();
     this.renderSettings();
     this.loadCacheStatus();
+    this.loadWhere();
+  },
+
+  /* Where the hearts and the thumbs down actually put things.
+     Asked of the server rather than written here: the container sees one path
+     and the machine serving it sees another, and only the server knows both.
+     A backend older than the endpoint sends no `paths` at all, and then this
+     block simply does not appear — which is right, because a path this page
+     invented would be worse than no path. */
+  async loadWhere() {
+    try {
+      const res = await (await fetch('/api/media/slideshow/settings')).json();
+      this.paths = res.paths || null;
+    } catch {
+      this.paths = null;
+    }
+    this.renderWhere();
+  },
+
+  renderWhere() {
+    const box = this.elBrowse?.querySelector('.m-where');
+    if (!box) return;
+    const p = this.paths;
+    if (!p || !p.liked_json) { box.innerHTML = ''; return; }
+    const row = (what, o) => `
+      <div class="m-wrow"><span class="m-wwhat">${what}</span>
+        <code class="m-wpath">${this.esc(o.host || o.container)}</code></div>`;
+    box.innerHTML = `
+      <div class="m-opt">
+        <div class="m-olabel">Where the kept files are
+          <span class="m-ohint">on ${this.esc(location.hostname)} — the copies themselves,
+            and the lists naming every one with its whole path on the NAS</span></div>
+        <div class="m-wpaths">
+          ${row('Liked copies', p.liked_files)}
+          ${row('Liked list', p.liked_json)}
+          ${row('Disliked copies', p.disliked_files)}
+          ${row('Disliked list', p.disliked_json)}
+        </div>
+      </div>`;
   },
 
   /* The gear is the only place the cache is visible, so it has to answer
@@ -989,7 +1225,17 @@ export default {
     const c = this.cache;
     if (!c) return 'Cache status unavailable.';
     if (c.state === 'off') return 'Cache is off — every picture is read from the NAS as it appears.';
-    if (c.state === 'filling') return `Downloading a new batch… ${c.count} of ${c.target}.`;
+    if (c.state === 'filling') {
+      // Two phases, two units. Pictures are files against a target and clips
+      // are megabytes against a budget, so one progress line that only knew
+      // about files sat frozen at "71 of 500" for the whole of the second half.
+      if (c.phase === 'clips') {
+        const mb = (b) => Math.round((b || 0) / 1048576);
+        return `Pictures done. Downloading clips… ${mb(c.clip_bytes)}`
+          + ` of ${mb(c.clip_budget)} MB${c.clips ? `, ${c.clips} so far` : ''}.`;
+      }
+      return `Downloading pictures… ${c.photos ?? c.count} of ${c.target}.`;
+    }
     if (c.state === 'failed') return 'The last batch could not be built. Try again once the NAS is awake.';
     const n = c.available ?? c.count;
     if (!n) return this.nas === 'awake'
@@ -997,7 +1243,14 @@ export default {
       : 'No batch yet — it is built when the NAS next wakes.';
     const when = new Date((c.built_at || 0) * 1000);
     const today = when.toDateString() === new Date().toDateString();
-    return `${n} pictures ready, fetched ${today
+    // Clips are counted apart from the pictures, and in megabytes as well as
+    // in files: the budget above is set in megabytes, so this is the line that
+    // has to say whether it was spent.
+    const clips = c.clips
+      ? ` and ${c.clips} clip${c.clips === 1 ? '' : 's'}`
+        + `${c.clip_bytes ? ` (${Math.round(c.clip_bytes / 1048576)} MB)` : ''}`
+      : '';
+    return `${n} picture${n === 1 ? '' : 's'}${clips} ready, fetched ${today
       ? `today at ${when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
       : when.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}.`;
   },
@@ -1115,6 +1368,13 @@ export default {
     };
   },
 
-  onHide() { this.live = false; clearInterval(this.timer); this.timer = null; },
+  onHide() {
+    this.live = false;
+    clearInterval(this.timer);
+    this.timer = null;
+    // Nobody is looking: a clip decoding behind a Cooking preset is the same
+    // waste the timer was stopped for.
+    if (this.clip) this.endClip(false);
+  },
   onShow() { this.live = true; if (this.mode === 'slideshow') this.restart(); },
 };

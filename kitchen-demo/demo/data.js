@@ -33,9 +33,19 @@
 
   /* ------------------------------------------------------------- weather
      Shaped exactly like the backend's /api/weather: WMO codes, hourly rows for
-     four days and Open-Meteo's own daily figures for seven. Every field the
-     header band, the hours sheet and the week sheet read is filled in. */
-  const CITY = 'Karlstad';
+     four days and Open-Meteo's own daily figures for ten. Every field the
+     "now" block and the weather report read is filled in.
+
+     Ten and not seven: the report lists ten days (FORECAST_DAYS in
+     backend/app/weather.py), and a list that ran out after seven would show
+     three empty rows. */
+  /* Not the house's own town, which is the whole point of this file: the city
+     is printed under the temperature in the top bar, in every view, and it is
+     the one field here that would have said where the kitchen is. Somewhere
+     temperate and plainly not it, so the forecast below still reads as a real
+     one. (It is on build-demo.py's forbidden list, and that sweep now covers
+     this file too — it was set to the real town for a while.) */
+  const CITY = 'Bristol';
 
   // One character per day: what kind of day it is, and the numbers follow.
   const DAYS = [
@@ -46,6 +56,9 @@
     { code: 1, hi: 18, lo: 9, pp: 5 },
     { code: 0, hi: 20, lo: 10, pp: 0 },
     { code: 2, hi: 19, lo: 12, pp: 15 },
+    { code: 45, hi: 16, lo: 9, pp: 10 },
+    { code: 63, hi: 14, lo: 10, pp: 85 },
+    { code: 3, hi: 15, lo: 8, pp: 35 },
   ];
 
   function weather() {
@@ -115,14 +128,36 @@
      The arrangement presets, exactly as the wall has them: six views, and
      three arrangements of the first one because a bird box is empty for half
      the year and a view built around it is then a view built around a blank
-     rectangle. */
+     rectangle.
+
+     `accent` is the hue a view's button wears, and it is the hue that view's
+     own panels already use: on a wall these six are the most-pressed targets
+     on the glass, and colour is what tells them apart before the word on them
+     is read.
+
+     `home` on a variant names the view the wall comes back to when the
+     dashboard has sat untouched for fifteen minutes — choosing "Photos, no
+     bird box" as the arrangement is also choosing Photos as the view this
+     kitchen rests on. Only the mixed dashboards time out: the single-source
+     views carry `stay: true`, because a screen that jumped away from the bird
+     box or the television after a quarter of an hour of watching would be
+     taking the wall off the person using it.
+
+     `expand` names the panel a view opens as, full screen. Photos and Birds
+     are one panel across the whole grid, so without it choosing them gave you
+     that same picture inside a card with a title bar and 16px of panel showing
+     round the edge — a step on the way to what was asked for and nothing else.
+     ⤢ still comes back out of it. Not on TV: a channel is a page in a frame
+     and reads as one. See setPreset() in js/app.js, which is the wall's own. */
   const LAYOUTS = {
     presets: {
       grid: {
         label: 'Everything',
+        accent: 'text',
         variants: {
           'birds-photos': {
             label: 'Bird box and photos',
+            home: 'grid',
             note: 'the box above the countdown, photographs down the right',
             rows: '1.5fr 1fr 0.7fr',
             areas: [
@@ -134,6 +169,7 @@
           },
           photos: {
             label: 'Photos, no bird box',
+            home: 'ambient',
             note: 'for the months the box is empty — the picture gets the full height',
             rows: '1.25fr 1fr 0.55fr',
             areas: [
@@ -145,6 +181,7 @@
           },
           birds: {
             label: 'Bird box, no photos',
+            home: 'birds',
             note: 'nesting season — the box gets the full height',
             rows: '1.25fr 1fr 0.55fr',
             areas: [
@@ -158,6 +195,7 @@
       },
       cooking: {
         label: 'Cooking',
+        accent: 'food',
         variants: {
           tonight: {
             label: 'Tonight and timers',
@@ -177,6 +215,7 @@
       },
       house: {
         label: 'House',
+        accent: 'house',
         rows: '1fr 132px',
         areas: [
           'ha ha ha ha countdown countdown',
@@ -186,18 +225,26 @@
       },
       ambient: {
         label: 'Photos',
+        accent: 'photos',
+        stay: true,
+        expand: 'media',
         rows: '1fr',
         areas: ['media media media media media media'],
         visible: ['media'],
       },
       birds: {
         label: 'Birds',
+        accent: 'birds',
+        stay: true,
+        expand: 'camera',
         rows: '1fr',
         areas: ['camera camera camera camera camera camera'],
         visible: ['camera'],
       },
       tv: {
         label: 'TV',
+        accent: 'tv',
+        stay: true,
         rows: '1fr',
         areas: ['tv tv tv tv tv tv'],
         visible: ['tv'],
@@ -420,6 +467,123 @@
     stale: false,
   };
 
+  /* ------------------------------------------------------------- the week
+     Seven days of dinners, one vegetarian and one not per day, each with an
+     alternative or two — the plan an agent writes after being handed the
+     photographs from a kitchen.
+
+     The plan is not a view of the suggestions: on the wall it is the other way
+     round. At five past midnight the server copies that day's entry of the
+     plan into the suggestions document, and from there every gesture the
+     Cooking panel already had — choose, tick, rate, Steps — works knowing
+     nothing about a week. Which is why today's two dinners below are the same
+     two the cards are showing.
+
+     A day's ingredients are what the shopping button counts, so they are
+     written out per day rather than referred to: `have` is the answer to "is
+     this in the cupboard already", and the days ahead are deliberately short
+     of a few things, or the button would have nothing to add. */
+  const W = (title, note, timeMin, ings, kind) => ({
+    kind, title, note, time_min: timeMin, servings: 4, rating: null,
+    ingredients: ings.map(([name, qty, have]) => ing(name, qty, have)),
+    steps: [],
+  });
+
+  // Titles only, for the "or …" line under a dinner: an alternative nobody
+  // chose needs no ingredients, and the server writes none either.
+  const ALT = (title, kind) => ({ kind, title, note: '', time_min: null,
+                                  servings: 4, rating: null, ingredients: [], steps: [] });
+
+  const WEEK_PLAN = [
+    { note: '',
+      veg: ['Halloumi and couscous with roasted peppers', 'sheet pan, almost no washing up', 30,
+            [['halloumi', '2 blocks'], ['couscous', '300 g', true], ['red peppers', '3', true],
+             ['lemon', '1'], ['mint', 'a handful']]],
+      normal: ['Creamy chicken and leek pie', 'a Sunday thing on a Tuesday', 55,
+               [['chicken thighs', '800 g'], ['leeks', '3', true], ['puff pastry', '1 sheet'],
+                ['crème fraîche', '200 ml']]],
+      alts: { veg: ['Mushroom risotto'], normal: ['Salmon with dill potatoes'] } },
+    { note: 'late home — something quick',
+      veg: ['Chickpea and spinach curry', 'store cupboard, twenty-five minutes', 25,
+            [['chickpeas', '2 tins', true], ['spinach', '200 g'], ['coconut milk', '400 ml', true],
+             ['basmati rice', '300 g', true]]],
+      normal: ['Sausages with lentils and mustard', 'one pot, waits happily', 35,
+               [['sausages', '8'], ['puy lentils', '300 g', true], ['carrots', '3', true],
+                ['dijon mustard', '2 tsp', true]]],
+      alts: { veg: ['Egg fried rice'], normal: ['Fish finger sandwiches'] } },
+    { note: '',
+      veg: ['Mushroom risotto', 'wants stirring, worth it', 40,
+            [['arborio rice', '350 g', true], ['chestnut mushrooms', '400 g'],
+             ['dried porcini', '20 g'], ['parmesan', '80 g', true]]],
+      normal: ['Beef chili', 'better tomorrow, so make it all', 50,
+               [['minced beef', '700 g'], ['kidney beans', '2 tins', true],
+                ['chopped tomatoes', '2 tins', true], ['chipotle paste', '1 tbsp']]],
+      alts: { veg: ['Leek and potato soup', 'Cauliflower cheese'], normal: [] } },
+    { note: 'the chili again, and nobody minds',
+      veg: ['Roasted cauliflower with tahini and flatbreads', 'oven does it', 35,
+            [['cauliflower', '1 large'], ['tahini', '3 tbsp'], ['flatbreads', '4'],
+             ['pomegranate', '1']]],
+      normal: ['Beef chili, second day', 'reheated, with rice', 15,
+               [['basmati rice', '300 g', true], ['soured cream', '150 ml'],
+                ['coriander', 'a bunch']]],
+      alts: { veg: [], normal: ['Jacket potatoes with the chili'] } },
+    { note: '',
+      veg: ['Spinach and ricotta pasta bake', 'made ahead, baked late', 45,
+            [['rigatoni', '500 g', true], ['ricotta', '500 g'], ['spinach', '300 g'],
+             ['parmesan', '80 g', true], ['passata', '700 g']]],
+      normal: ['Salmon with dill potatoes', 'thirty-five minutes, one pan and a pot', 35,
+               [['salmon fillets', '4'], ['new potatoes', '900 g', true], ['dill', 'a bunch'],
+                ['green beans', '300 g']]],
+      alts: { veg: ['Mushroom stroganoff'], normal: ['Roast chicken thighs'] } },
+    { note: 'people coming',
+      veg: ['Aubergine parmigiana', 'takes a while, feeds everybody', 70,
+            [['aubergines', '4'], ['mozzarella', '3 balls'], ['passata', '1 kg'],
+             ['basil', 'a bunch'], ['parmesan', '80 g', true]]],
+      normal: ['Slow-roast lamb shoulder with flatbreads', 'in at two, eaten at seven', 300,
+               [['lamb shoulder', '2 kg'], ['flatbreads', '8'], ['yoghurt', '500 g'],
+                ['cumin', '2 tsp', true], ['lemon', '2']]],
+      alts: { veg: ['Wild mushroom tart'], normal: ['Whole roast chicken'] } },
+    { note: 'leftovers, and the fridge needs emptying',
+      veg: ['Leftover vegetable frittata', 'whatever is in the drawer', 25,
+            [['eggs', '8', true], ['potatoes', '400 g', true], ['cheddar', '150 g', true]]],
+      normal: ['Lamb and flatbread wraps', 'yesterday, rolled up', 15,
+               [['flatbreads', '4'], ['yoghurt', '250 g'], ['cucumber', '1'],
+                ['mint', 'a handful']]],
+      alts: { veg: ['Fried rice, again'], normal: [] } },
+  ];
+
+  /* The plan starts today, so the demo always has a "today" row — the row the
+     panel marks, and the one whose dinners the cards are already showing. The
+     week the wall gets from an agent usually starts on a Monday; a demo that
+     opened on a Thursday would then be showing three days already eaten. */
+  function week() {
+    const days = WEEK_PLAN.map((d, i) => {
+      const date = inDays(i);
+      const one = (kind) => {
+        const r = W(...d[kind], kind);
+        return { ...r, id: `w-${date}-${kind}-1` };
+      };
+      return {
+        date, note: d.note,
+        veg: one('veg'), normal: one('normal'),
+        alternates: {
+          veg: (d.alts.veg || []).map((t, n) => ({ ...ALT(t, 'veg'), id: `w-${date}-veg-${n + 2}` })),
+          normal: (d.alts.normal || []).map(
+            (t, n) => ({ ...ALT(t, 'normal'), id: `w-${date}-normal-${n + 2}` })),
+        },
+        rating: { veg: null, normal: null },
+      };
+    });
+    return {
+      version: 1,
+      week_start: days[0].date,
+      generated: new Date(Date.now() - 20 * 3600000).toISOString(),
+      by: 'Claude',
+      note: 'planned from the photographs of the fridge and the shelves',
+      days,
+    };
+  }
+
   const SHOPPING = {
     version: 1,
     updated: new Date(Date.now() - 3600000).toISOString(),
@@ -509,6 +673,79 @@
     thumb_url: 'media/birdbox.jpg', url: 'media/birdbox.mp4',
   };
 
+  /* ---------------------------------------------------------- the bird box
+     What the camera has reported, and what the wall is to do about it.
+
+     On the wall the detecting happens on the camera's own chip: the server
+     holds one socket open to the box outside, writes a still for every event
+     it reports, and the panel is the part that keeps the count and makes the
+     noise. None of that can happen here, so the log is made up — but out of
+     the real clip, six frames cut from media/birdbox.mp4, so the stills in the
+     top bar and behind the count are pictures of the same bird the panel is
+     looping.
+
+     Defaults are the wall's own (backend/app/motion.py), with two changed for
+     a visitor rather than a kitchen: the lights do not flash a house nobody
+     is in, and the cooldown is a minute, which is what stops a nesting bird
+     reporting every three seconds from filling the log. */
+  const MOTION_SETTINGS = {
+    alerts: true,
+    beep: true,
+    beep_sound: 'chime',
+    beep_ms: 600,
+    snapshot: true,
+    clip: false,
+    clip_s: 8,
+    keep_days: 3,
+    cooldown_s: 60,
+    light_pulse: false,
+    light_rooms: [],
+    light_pulse_s: 4,
+    light_pulse_style: 'flash',
+    light_pulse_times: 1,
+  };
+
+  // The camera's own detector, which is the one setting on that sheet that
+  // lives in the box outside rather than in a file on the server.
+  const MOTION_CAMERA = { level: 3, read_at: Math.floor(Date.now() / 1000) - 1800, error: '' };
+
+  /* Oldest first, as the log file on the server is; the snapshot reverses it.
+     The hours are minutes-since-now so the demo is never showing a box that
+     was last visited last Tuesday, and the pattern is a real one: a cluster
+     while the light is good, a gap overnight, one straggler at dusk. */
+  const MOTION_MINUTES = [
+    7, 34, 52, 96, 141, 188, 233, 260, 315, 402, 488, 553,
+    1180, 1235, 1290, 1362, 1455, 1620,
+    2630, 2705, 2780, 2905, 3060,
+  ];
+
+  function motionEvents() {
+    const now = Math.floor(Date.now() / 1000);
+    // Newest last, and the newest one gets the clip: `clip` is off in the
+    // settings above, so one event carrying a recording is exactly what the
+    // wall looks like after somebody has switched it on for an afternoon.
+    return MOTION_MINUTES.slice().reverse().map((mins, i) => {
+      const at = now - mins * 60;
+      const last = i === MOTION_MINUTES.length - 1;
+      return {
+        id: `m${at}`,
+        at,
+        event: 'VideoMotion',
+        snapshot: `still-${(i % 6) + 1}.jpg`,
+        ...(last ? { clip: 'birdbox.mp4' } : {}),
+      };
+    });
+  }
+
+  // Where a still or a clip is actually served from. On the wall these are
+  // /api/motion/file/<name> out of data/motion/; here they are files on disk,
+  // because an <img> src never passes through the fetch shim.
+  const MOTION_FILES = {
+    'birdbox.mp4': 'media/birdbox.mp4',
+    ...Object.fromEntries([1, 2, 3, 4, 5, 6].map(
+      (n) => [`still-${n}.jpg`, `media/motion/still-${n}.jpg`])),
+  };
+
   const ROOT_LABELS = { photos: 'Demo library', family: 'Family', video: 'Clips' };
 
   /* Where each library would live on the NAS. Invented, like everything else
@@ -555,11 +792,14 @@
   const CONFIG = {
     layouts: LAYOUTS,
     entities: ENTITIES,
-    camera: { sub_src: 'demo', hd_src: 'demo', go2rtc_base: '' },
+    camera: { sub_src: 'demo', hd_src: 'demo' },
     slideshow: {
       interval_s: 3, transition_s: 1.2, order: 'shuffle', recent_ratio: 0.3,
       include_videos: false, fit: 'contain', show_caption: true, use_chosen: true,
-      source: 'cache', cache_size: 350, cache_refresh_h: 24,
+      // Three ways for the kept photographs to reach the show: only the new
+      // ones, the two mixed, or nothing but what somebody has liked.
+      liked_mix: 'mix',
+      source: 'cache', cache_size: 350, cache_refresh_h: 24, cache_video_mb: 2000,
     },
     launchers: [],
     tv: { links: CHANNELS.map(({ label, mark, color, url, note }) => ({ label, mark, color, url, note })) },
@@ -575,6 +815,7 @@
   window.DEMO = {
     CITY, CONFIG, LAYOUTS, ENTITIES, ROOMS, EVENTS, CITY_WX, PLACES,
     SUGGESTIONS, SHOPPING, PANTRY, TIMERS, PHOTOS, CLIP, ROOT_LABELS, NAS_ROOTS,
-    CHANNELS, weather, haStates, iso, inDays,
+    CHANNELS, MOTION_SETTINGS, MOTION_CAMERA, MOTION_FILES,
+    weather, week, motionEvents, haStates, iso, inDays,
   };
 })();
