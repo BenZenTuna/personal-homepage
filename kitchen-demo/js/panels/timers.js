@@ -350,13 +350,19 @@ export default {
      wall runs with --autoplay-policy=no-user-gesture-required; a phone does
      not, which is what unlock() is for. */
 
+  /* The three above, then the ones uploaded in the sheet (2026-10-18). */
+  sounds() {
+    return [...SOUNDS, ...(this.ctx.soundlib?.list('timers') || [])
+      .map((x) => ({ id: x.id, name: x.label, file: x.file, uploaded: true }))];
+  },
+
   soundId() {
     const id = this.ctx.uiState?.alarm_sound;
-    return SOUNDS.some((s) => s.id === id) ? id : DEFAULT_SOUND;
+    return this.sounds().some((s) => s.id === id) ? id : DEFAULT_SOUND;
   },
 
   sound(id = this.soundId()) {
-    return SOUNDS.find((s) => s.id === id) || SOUNDS[0];
+    return this.sounds().find((s) => s.id === id) || SOUNDS[0];
   },
 
   /* One <audio> per sound, kept and reused: made fresh at alarm time the file
@@ -411,6 +417,7 @@ export default {
   },
 
   stopAlarm() {
+    if (this.voicing) { this.voicing = false; this.ctx.voice?.stop(); }
     clearTimeout(this.fadeTimer); this.fadeTimer = null;
     clearInterval(this.fader); this.fader = null;
     clearTimeout(this.beepTimer); this.beepTimer = null;
@@ -462,12 +469,20 @@ export default {
     this.rang.add(id);
     this.playAlarm();
     clearTimeout(this.ringOff);
-    this.ringOff = setTimeout(() => this.silence(id), RING_MS);
+    this.ringOff = setTimeout(() => this.silence(id, { ended: true }), RING_MS);
   },
 
-  silence(id) {
+  /* `ended`: its thirteen seconds ran out — not a tap that stopped it. */
+  silence(id, { ended = false } = {}) {
     if (!this.ringing.delete(id)) return;
-    if (!this.ringing.size) this.stopAlarm();   // another timer may still be going
+    if (!this.ringing.size) {                   // another timer may still be going
+      this.stopAlarm();
+      // The thirteen seconds over: the timers' text, read once (2026-10-18).
+      if (ended && this.ctx.voice?.file('timers')) {
+        this.voicing = true;
+        Promise.resolve(this.ctx.voice.play('timers')).then(() => { this.voicing = false; });
+      }
+    }
   },
 
   // Leaving the done state re-arms the alarm for next time.
@@ -512,54 +527,110 @@ export default {
     if (!this.sheet) {
       this.sheet = document.createElement('div');
       this.sheet.id = 'alarm-sheet';
+      // A centred dialog, not a full sheet: the settings window kit's
+      // header (icon, name and a line of what is chosen now) over a list
+      // with a tick for the chosen sound, and the actions beside it.
       this.sheet.innerHTML = `
         <div class="as-card">
           <header>
-            <h2>Alarm sound</h2>
+            <span class="sheet-icon" aria-hidden="true">⏲️</span>
+            <div class="sheet-title">
+              <h2>Alarm sound</h2>
+              <span class="sheet-status as-now"></span>
+            </div>
             <span class="spacer"></span>
-            <button class="as-close">Close</button>
+            <button class="ls-close as-close">Close</button>
           </header>
-          <div class="as-list">${SOUNDS.map((s) => `
-            <button class="as-opt" data-id="${s.id}">
-              <span class="as-name">${s.name}</span>
-              <span class="as-tick">✓</span>
-            </button>`).join('')}</div>
           <p class="as-hint">Tap one to hear it and use it. A finished timer
-            plays it for thirteen seconds, then keeps flashing.</p>
+            plays it for thirteen seconds, then keeps flashing — and reads its
+            text, if it has one. ＋ Upload adds a sound file of your own.</p>
+          <div class="as-list"></div>
         </div>`;
       document.body.appendChild(this.sheet);
-      this.wireTap(this.sheet.querySelector('.as-close'), () => this.closeSounds());
-      this.sheet.querySelectorAll('.as-opt').forEach((btn) =>
-        this.wireTap(btn, () => this.pickSound(btn.dataset.id)));
+      const close = this.sheet.querySelector('.as-close');
+      this.wireTap(close, () => this.closeSounds());
+      // Back on a phone presses Close with a click (phone.js), which the
+      // pointer taps above never see.
+      close.addEventListener('click', () => this.closeSounds());
+      this.ctx.soundlib?.onChange(() => { if (this.sheet.classList.contains('open')) this.renderSounds(); });
+      this.ctx.voice?.onChange(() => { if (this.sheet.classList.contains('open')) this.renderSounds(); });
       // A tap on the ground outside the card closes it, like a dropped lid.
       this.sheet.addEventListener('pointerdown', (e) => {
         if (e.target === this.sheet) this.closeSounds();
       });
     }
-    this.markSound();
+    this.renderSounds();
     this.sheet.classList.add('open');
   },
 
+  /* The list: the built-in three, the uploaded ones with ✕, ＋ Upload and
+     the text read after the alarm (2026-10-18) — and, while one is being
+     heard, Stop. Drawn on every opening and whenever the library, the text
+     or the hearing changes. */
+  renderSounds() {
+    const list = this.sheet.querySelector('.as-list');
+    const lib = this.ctx.soundlib;
+    const voice = this.ctx.voice;
+    list.innerHTML = `${this.sounds().map((s) => `
+      <span class="as-line">
+        <button class="as-opt" data-id="${s.id}" aria-pressed="false">
+          <span class="as-tick" aria-hidden="true">✓</span>
+          <span class="as-name">${s.name.replace(/[&<>"]/g, '')}</span>
+        </button>${s.uploaded && lib ? lib.delBtn(s.id, { label: s.name }) : ''}</span>`).join('')}
+      <span class="as-extra sheet-acts">${this.previewing
+        ? '<button class="ls-btn sheet-danger on as-stop">■ Stop</button>' : ''}${
+        lib ? lib.uploadBtn('timers') : ''}${voice ? voice.chip('timers') : ''}</span>
+      ${voice ? voice.editor('timers', { hint: 'read aloud after the thirteen seconds of alarm — e.g. "the oven timer is done"' }) : ''}`;
+    list.querySelectorAll('.as-opt').forEach((btn) =>
+      this.wireTap(btn, () => this.pickSound(btn.dataset.id)));
+    this.wireTap(list.querySelector('.as-stop'), () => this.endPreview());
+    lib?.wire(list, { onUploaded: (r) => this.pickSound(r.id) });
+    voice?.wire(list, () => this.renderSounds());
+    this.markSound();
+  },
+
   closeSounds() {
+    this.previewing = null;
+    clearTimeout(this.previewOff);
     this.stopAlarm();          // whatever was previewing stops with the sheet
     this.sheet?.classList.remove('open');
   },
 
   pickSound(id) {
-    if (!SOUNDS.some((s) => s.id === id)) return;
+    if (!this.sounds().some((s) => s.id === id)) return;
     this.ctx.saveUiState({ alarm_sound: id });
     this.unlocked = true;      // this very tap is the gesture that unlocks it
-    this.markSound();
     this.stopAlarm();
     this.playAlarm();          // hear it, for the same thirteen seconds it gets
+    this.previewing = id;
     clearTimeout(this.previewOff);
-    this.previewOff = setTimeout(() => { if (!this.ringing.size) this.stopAlarm(); }, RING_MS);
+    this.previewOff = setTimeout(() => this.endPreview(), RING_MS);
+    this.renderSounds();
+  },
+
+  /* The thirteen seconds are over, or Stop was tapped: quiet, unless a timer
+     of its own is ringing meanwhile. */
+  endPreview() {
+    clearTimeout(this.previewOff);
+    if (!this.ringing.size) this.stopAlarm();
+    if (!this.previewing) return;
+    this.previewing = null;
+    if (this.sheet?.classList.contains('open')) this.renderSounds();
   },
 
   markSound() {
     const chosen = this.soundId();
-    this.sheet?.querySelectorAll('.as-opt').forEach((b) =>
-      b.classList.toggle('on', b.dataset.id === chosen));
+    this.sheet?.querySelectorAll('.as-opt').forEach((b) => {
+      b.classList.toggle('on', b.dataset.id === chosen);
+      b.setAttribute('aria-pressed', String(b.dataset.id === chosen));
+    });
+    // The header's line: what is chosen, or what is being heard.
+    const name = (id) => (this.sounds().find((s) => s.id === id)?.name || '').replace(/[&<>"]/g, '');
+    const kit = this.ctx.sheetkit;
+    const el = this.sheet?.querySelector('.as-now');
+    if (!kit || !el) return;
+    if (this.previewing) kit.status(el, `<b>Playing</b> · ${name(this.previewing)}`, 'live');
+    else kit.status(el, `<b>${name(chosen)}</b>${this.ctx.voice?.of('timers') ? ' · then its text' : ''}`, 'ok');
   },
 
   /* ---------- drawing ---------- */

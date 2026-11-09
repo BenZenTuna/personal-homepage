@@ -1,0 +1,1098 @@
+/* The kitchen on a phone.
+
+   Every rule here starts with html.phone, which index.html sets only on a
+   screen under 700px wide (or a phone lying on its side), so none of it can
+   reach the wall or a laptop. app.css is the design; this file only lays the
+   same panels out for a hand instead of a wall: one column that scrolls, the
+   six views along the bottom, and Now in place of Everything.
+
+   Same palette, same type, same hues per view — the tokens are app.css's.
+   Classes of its own are `ph-*` (checked free in app.css). */
+
+html.phone {
+  --z: 1;                                   /* the wall's zoom ladder stops here */
+  --ph-bar: calc(64px + env(safe-area-inset-bottom));
+  --ph-pad: 16px;
+  --ph-card: 14px;
+  height: auto;
+}
+html.phone body {
+  height: auto; min-height: 100dvh;
+  overflow-x: hidden; overflow-y: auto;
+  user-select: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 20px) var(--ph-pad) calc(var(--ph-bar) + 24px);
+  zoom: 1;
+}
+
+/* ------------------------------------------------------ the header ---- */
+html.phone #ph-head { display: flex; flex-direction: column; gap: 2px; padding: 4px 2px 2px; }
+html.phone .ph-kick {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--dim); min-width: 0;
+}
+html.phone .ph-kick .hd-live { gap: 6px; font-size: 13px; }
+html.phone .ph-kick .hd-live::after { content: '·'; margin-left: 2px; }
+html.phone #conn-dot { width: 7px; height: 7px; }
+html.phone .ph-title {
+  margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.3px; line-height: 1.15;
+}
+
+/* ------------------------------------------- the views, along the bottom ---- */
+html.phone #presets {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  height: var(--ph-bar);
+  padding: 7px 6px env(safe-area-inset-bottom);
+  /* Seven views since the Radar's (2026-10-12): a seventh of 412px is 58px,
+     room for a 48px glyph and an 11px word. */
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;
+  align-items: start;
+  background: var(--panel); border-top: 1px solid var(--edge);
+}
+html.phone #presets button {
+  flex: none; width: auto; height: 52px; padding: 0;
+  border: 0; border-radius: 0; background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--mid); font-size: 11px; font-weight: 500;
+}
+html.phone #presets .ph-ico {
+  width: 48px; height: 30px; border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+}
+html.phone #presets .ph-ico svg { width: 22px; height: 22px; }
+html.phone #presets .ph-lab { white-space: nowrap; }
+html.phone #presets button.on { background: none; color: var(--accent); font-weight: 600; }
+html.phone #presets button.on .ph-ico { background: var(--accent); color: var(--bg); }
+
+/* -------------------------------------------- Now: the top bar, as cards ---- */
+html.phone #topbar {
+  height: auto; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+}
+html.phone:not(.ph-now) #topbar { display: none; }
+html.phone .hd-clock,
+html.phone .hd-rule,
+html.phone .hd-right { display: none; }
+
+/* The weather: the reading and, under it, the next six hours. Taps through
+   to the full forecast, as it does on the wall. */
+html.phone .hd-now {
+  grid-column: 1 / -1; min-width: 0;
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px 14px;
+  padding: 16px; margin: 0;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: var(--ph-card);
+}
+html.phone #now-icon { width: 48px; height: 48px; }
+html.phone #now-temp { font-size: 44px; letter-spacing: -1.5px; }
+html.phone #now-cond { font-size: 17px; color: var(--text); font-weight: 500; }
+html.phone .hd-now-txt { gap: 4px; }
+html.phone .hd-now-sub { font-size: 13px; color: var(--mid); flex-wrap: wrap; gap: 4px; }
+html.phone .ph-hours {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px;
+  padding-top: 12px; border-top: 1px solid var(--rule-soft);
+}
+html.phone .ph-hours:empty { display: none; }
+html.phone .ph-h { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+html.phone .ph-h-t { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+html.phone .ph-h.now .ph-h-t { color: var(--text); font-weight: 600; }
+html.phone .ph-h-ico { width: 24px; height: 24px; }
+html.phone .ph-h-c { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* The rooms and the bird box: three tiles in a row. */
+html.phone #hd-climate {
+  grid-column: span 2; min-width: 0; margin: 0; padding: 0;
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px;
+  border: 0; border-radius: 0; overflow: visible; align-items: stretch;
+}
+html.phone .cl-cell {
+  min-width: 0; padding: 12px; gap: 2px;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: 12px;
+}
+html.phone .cl-name { font-size: 12px; color: var(--mid); }
+html.phone .cl-vals { flex-direction: column; align-items: flex-start; gap: 2px; }
+html.phone .cl-vals b { font-size: 24px; letter-spacing: -0.5px; }
+html.phone .cl-vals i { font-size: 13px; color: var(--dim); }
+html.phone #hd-motion {
+  grid-column: span 1; min-width: 0; margin: 0; padding: 12px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: 12px;
+}
+html.phone #topbar:has(#hd-climate[hidden]) #hd-motion { grid-column: 1 / -1; }
+/* With the flowers' soil sensor there are three readings: they take the whole
+   row and the bird box goes under them, or each is a third of two columns and
+   none of them fits. The pot shows its temperature and its % like the rooms
+   do — the wall's top bar drops the temperature for width (app.css, scoped
+   to html:not(.phone)), a phone need not. */
+html.phone #topbar:has(.cl-cell.soil) #hd-climate { grid-column: 1 / -1; }
+html.phone #topbar:has(.cl-cell.soil) #hd-motion { grid-column: 1 / -1; }
+
+html.phone .mo-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+html.phone .mo-txt { display: contents; }
+html.phone .mo-txt b { order: 0; font-size: 12px; font-weight: 400; color: var(--birds); }
+html.phone .mo-n { order: 1; font-size: 24px; letter-spacing: -0.5px; color: var(--birds); }
+html.phone .mo-txt i { order: 2; font-size: 12px; line-height: 1.25; white-space: normal; }
+/* Kitchen, PC rack, then the bird box, as on the wall. */
+html.phone .hd-now { order: 0; }
+html.phone #hd-climate { order: 1; }
+html.phone #hd-motion { order: 2; }
+/* Needs attention: a card of its own across Now, first under the weather,
+   there only while something is waiting — the count, what it counts and the
+   first item on one line. */
+html.phone #hd-attn {
+  order: 0; grid-column: 1 / -1; max-width: none; margin: 0; padding: 12px 16px;
+  flex-direction: row; justify-content: flex-start; gap: 12px; text-align: left;
+  border-radius: 12px;
+}
+html.phone #hd-attn .at-n { font-size: 30px; }
+html.phone #hd-attn .at-what { font-size: 15px; }
+html.phone #hd-attn .at-top { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+html.phone #topbar:has(#hd-attn:not([hidden])) #hd-motion { min-width: 0; margin: 0; padding: 12px; }
+html.phone #topbar:has(#hd-attn:not([hidden])) #hd-motion .mo-txt i { display: block; }
+/* The sheet's rows stack their buttons under the words at a hand's width. */
+html.phone .at-row { flex-direction: column; align-items: stretch; gap: 8px; }
+html.phone .at-btns button { flex: 1 1 0; }
+html.phone .mo-thumbs { display: none; }
+
+/* ------------------------------------------------------ the panels ---- */
+html.phone #grid {
+  flex: none; display: flex; flex-direction: column; gap: 12px;
+  grid-template-columns: none; grid-template-rows: none;
+}
+html.phone .panel { flex: none; border-radius: var(--ph-card); }
+html.phone .panel > header { padding: 0 8px 0 16px; gap: 8px; }
+html.phone .panel > header .spacer { min-width: 0; }
+html.phone .panel > header .custom-buttons { gap: 6px; }
+html.phone .panel > header .custom-buttons button { height: 38px; padding: 0 10px; font-size: 14px; }
+/* Where a panel's buttons fill its header, the count beside its name gives
+   way to them: the buttons are the way into what the count is counting. */
+html.phone :is(#p-food, #p-media, #p-camera) > header .meta { display: none; }
+html.phone .panel > .body { flex: none; }
+/* Where the panel is the whole view, it has no ⤢ to offer. */
+html.phone .panel.ph-whole:not(.expanded) > header button.expand { display: none; }
+
+/* A panel filling the screen is a sheet over the page, above the views. */
+html.phone .panel.expanded {
+  position: fixed; inset: 0; z-index: 45;
+  border: 0; border-radius: 0;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  overflow-y: auto;
+}
+html.phone .panel.expanded > header {
+  position: sticky; top: 0; z-index: 2;
+  height: 60px; padding: 0 8px 0 16px; gap: 8px;
+  font-size: 20px; font-weight: 600;
+  background: var(--panel); border-bottom: 1px solid var(--rule-soft);
+}
+html.phone .panel.expanded > header .meta { font-size: 13px; }
+html.phone .panel.expanded > header .custom-buttons button { height: 40px; padding: 0 12px; font-size: 14px; }
+html.phone .panel.expanded > header button.expand {
+  width: 48px; min-width: 48px; height: 48px; margin: 0;
+  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  color: var(--text); font-size: 22px;
+}
+html.phone .panel.expanded > .body { flex: 1 0 auto; }
+
+/* ----------------------------------------------- the sheets, full screen ---- */
+/* (The chart is a .sheet now, full screen by the kit's rule; it is named
+   here still because it scrolls as one, which phone-layout-test.mjs reads.) */
+html.phone #wx-overlay,
+html.phone #ts-overlay,
+html.phone #cl-sheet {
+  inset: 0; border: 0; border-radius: 0;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  overflow-y: auto;
+}
+
+/* ---- the settings window kit on a phone (app.css, "the settings window kit") ----
+   Every .sheet is the whole screen (2026-10-15 phone review: inset like the
+   wall's, the view bar showed under them). Its header is one line of icon,
+   name and Close — Close keeps the top right corner — with the status under
+   the name, and whatever else a header holds (a scope, another button) on
+   the line under them. A long window's rail is a row of chips under the
+   header, which stays while the body scrolls. A card's row stacks: the name
+   and its hint, then the controls the width of the card. Every rule here
+   that sizes a control is inside a .sheet: the rest of the phone keeps its own. */
+html.phone .sheet {
+  inset: 0; border: 0; border-radius: 0; box-shadow: none;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  overflow-y: auto;
+}
+html.phone .sheet > header {
+  min-height: 64px; flex-wrap: wrap; padding: 10px 10px 10px 14px; gap: 6px 12px;
+}
+html.phone .sheet > header > * { order: 3; }
+html.phone .sheet > header > :is(.sheet-icon, .sheet-title, h2, .spacer) { order: 1; }
+html.phone .sheet > header > .ls-close { order: 2; margin-left: 0; }
+/* Whatever else the header holds starts the line under name and Close, so it
+   never squeezes the name beside Close (#lx-sheet's scope and Apply now). */
+html.phone .sheet > header:has(> :not(.sheet-icon, .sheet-title, h2, .spacer, .ls-close))::after {
+  content: ''; order: 2; flex: 0 0 100%; height: 0;
+}
+html.phone .sheet > header > :not(.sheet-icon, .sheet-title, h2, .spacer, button, .lx-scope) { flex-basis: 100%; font-size: 14px; }
+html.phone .sheet > header > :is(.sheet-title, h2) { flex: 1 1 0; min-width: 0; }
+html.phone .sheet > header h2 { font-size: 22px; font-weight: 600; line-height: 1.2; white-space: normal; }
+html.phone .sheet > header > .spacer { display: none; }
+html.phone .sheet-icon { width: 44px; height: 44px; border-radius: 12px; font-size: 22px; }
+html.phone .sheet-title { gap: 2px; }
+html.phone :is(.sheet-status, .snd-now) { font-size: 14px; white-space: normal; }
+html.phone .ls-close { height: 44px; min-width: 0; padding: 0 18px; font-size: 15px; }
+html.phone .sheet .ls-close { height: 48px; }
+html.phone .ls-body { padding: 0 16px 24px; }
+html.phone .sheet > .ls-body:has(> :is(.sheet-sec, .sheet-sum)) { padding: 0 10px 24px; }
+/* A body that opens with a box of its own (app.css): a little air under the header's line. */
+html.phone .ls-body:has(> :first-child:not(.ls-row, .sheet-sec, .sheet-sum)) { padding-top: 12px; }
+html.phone #cd-sheet .cd-sheetbody { padding: 0 12px 24px; }
+/* Their header lines under the name, as small as the kit's status. */
+html.phone :is(#cd-sheet .cd-sheetn, #sb-doc .sb-doc-sub) { font-size: 14px; }
+/* The rail: chips that scroll sideways, the one being read outlined. */
+html.phone .sheet.sheet-railed.open {
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+}
+html.phone .sheet.sheet-railed > .sheet-rail {
+  grid-column: 1; grid-row: 2; flex-direction: row; gap: 8px;
+  overflow-x: auto; overflow-y: hidden; padding: 8px 10px;
+  border-right: 0; border-bottom: 1px solid var(--rule-soft); scrollbar-width: none;
+}
+html.phone .sheet.sheet-railed > .ls-body { grid-column: 1; grid-row: 3; }
+html.phone .sheet-rail-i {
+  display: block; min-height: 48px; max-width: 72vw; padding: 0 16px; border-radius: 24px;
+  border: 1px solid var(--rule); background: var(--panel-2);
+  font-size: 15px; line-height: 46px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html.phone .sheet-rail-n { display: none; }
+html.phone .sheet-rail-i[aria-current="true"] {
+  box-shadow: none; border: 2px solid var(--sheet-accent, var(--house)); line-height: 44px; color: var(--text);
+}
+html.phone .sheet-sum { margin-top: 12px; padding: 16px 14px; gap: 14px; border-radius: 14px; }
+html.phone .sheet-sum-main { flex-basis: 100%; }
+html.phone .sheet-says { font-size: 20px; }
+html.phone .sheet-next { font-size: 16px; }
+html.phone .sheet-sec { margin-top: 12px; padding: 2px 14px 4px; border-radius: 14px; }
+html.phone .sheet-h { margin: 14px 0 0; font-size: 18px; }
+html.phone .sheet-more > summary.sheet-h { margin: 0; min-height: 56px; }
+html.phone .sheet-sub { font-size: 14px; }
+html.phone .sheet-note { margin: 8px 0 12px; font-size: 15px; }
+html.phone .ls-row { gap: 10px; padding: 14px 0; }
+html.phone .sheet-sec .ls-row { display: flex; flex-direction: column; align-items: stretch; }
+html.phone .sheet-sec .ls-row > .ls-label { padding-top: 0; }
+html.phone .ls-label { font-size: 16px; flex-wrap: wrap; }
+html.phone .sheet .ls-label { font-size: 17px; }
+html.phone .sheet .db-hint { font-size: 15px; padding-right: 0; }
+html.phone .sheet-sec .ls-label > .sheet-lead { font-size: 15px; }
+html.phone .ls-set { flex-wrap: wrap; }
+/* A button on the kit's cards (a card, or the state sentence): 48px tall and
+   at least as wide, else as wide as its words. A window not converted yet is
+   left as it was — none of this reaches its rows, so its own sizes and the
+   52px every .ls-btn has stand — and ✕ for a sound keeps its 56px. */
+html.phone .sheet :is(.sheet-sec, .sheet-sum) :where(.ls-btn, .ats-btn) {
+  min-height: 48px; min-width: 48px; padding: 0 14px; font-size: 16px;
+}
+html.phone .sheet :is(.sheet-sec, .sheet-sum) .ls-btn:is(.db-test, .sheet-primary) { min-width: 48px; }
+html.phone .sheet-ctl { align-items: stretch; }
+html.phone .ls-btn.sheet-switch { align-self: flex-start; padding: 0 18px 0 8px; }
+html.phone .sheet-seg { display: flex; width: auto; }
+html.phone .sheet-seg > :is(.ls-btn, .ats-btn) { min-width: 48px; padding: 0 12px; }
+html.phone .sheet :is(.ls-btn, .ats-btn).sl-del { min-width: 56px; }
+html.phone .sheet-step > :is(.ls-btn, .ats-btn) { min-width: 50px; padding: 0 10px; font-size: 24px; }
+html.phone .sheet-step > .sheet-txt { padding: 0 8px; font-size: 15px; }
+html.phone .sheet-val { min-width: 0; padding: 0 10px; font-size: 18px; }
+html.phone .sheet-chips > :is(.ls-btn, .ats-btn) { padding: 0 14px 0 10px; }
+/* Hours and days: a fixed number a line, every cell the same — six hours,
+   seven days (a grid sizes its cells, so no floor of width here). One hour of
+   a few four a line, two long choices two a line: the bar wraps, and the
+   cells of a short last line grow to fill it, so it never ends in an empty
+   cell that looks like a missing choice. */
+html.phone .sheet-grid.sheet-hours { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html.phone .sheet-grid > :is(.ls-btn, .ats-btn) { min-width: 0; }
+html.phone .sheet-seg:is(.sheet-hourbar, .sheet-two) { display: flex; flex-wrap: wrap; width: 100%; }
+html.phone .sheet-seg.sheet-hourbar > :is(.ls-btn, .ats-btn) { flex: 1 0 calc((100% - 4px) / 4); padding: 0 6px; }
+html.phone .sheet-seg.sheet-two > :is(.ls-btn, .ats-btn) { flex: 1 0 calc((100% - 2px) / 2); padding: 0 6px; }
+html.phone .sheet-band { flex-direction: column; align-items: stretch; gap: 6px; }
+html.phone .sheet-band .snd-cap { min-width: 0; flex-direction: row; flex-wrap: wrap; gap: 0 10px; align-items: baseline; }
+/* The alert style rows: the name over its four groups, one under the other. */
+html.phone .ats-set { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+html.phone .ats-name b { font-size: 17px; }
+html.phone .ats-sounds > .sheet-seg { flex: 1 1 100%; }
+/* A bar that wraps fills each of its lines: every button may grow, and shrink
+   to its cut name, so no gap shows the bar's line colour. */
+html.phone .sheet-seg > :is(.ls-btn, .ats-btn) { flex: 1 1 auto; }
+
+/* The wall's own: arranging it, full screen. */
+html.phone #layout-overlay { display: none; }
+
+/* ---- the sound windows on a phone (doorbell, clock, Babo, the timer's alarm) ----
+   A band's six volumes three a line, so Silent and 100% are never cut. The
+   timer's alarm stays a card in the middle: its name at the phone's size. */
+html.phone .sheet-seg.sheet-hourbar.snd-vol > .ls-btn { flex: 1 0 calc((100% - 3px) / 3); }
+html.phone .as-card > header { padding: 10px 10px 10px 14px; gap: 10px; }
+html.phone .as-card h2 { font-size: 22px; font-weight: 600; }
+html.phone .as-hint { margin: 12px 14px 0; font-size: 15px; }
+html.phone .as-list { padding: 0 14px; }
+html.phone #bb-sheet .sw-draft { padding: 12px; }
+/* "after 05:00" is two words: two a line, never broken in a cell. */
+html.phone #bb-sheet .sheet-hourbar.bb-awake > .ls-btn { flex: 1 0 calc((100% - 2px) / 2); }
+
+/* ------------------------------------------------ the running timer ---- */
+html.phone #ph-timer {
+  position: fixed; right: var(--ph-pad); z-index: 35;
+  bottom: calc(var(--ph-bar) + 12px);
+  height: 46px; padding: 0 16px 0 8px;
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 23px; border: 1px solid var(--food);
+  background: color-mix(in srgb, var(--food) 14%, var(--panel));
+  color: var(--text); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+html.phone #ph-timer[hidden] { display: none; }
+html.phone .ph-t-ring { width: 30px; height: 30px; }
+html.phone .ph-t-ring circle { fill: none; stroke-width: 3; }
+html.phone .ph-t-ring .trk { stroke: var(--track); }
+html.phone .ph-t-ring .arc { stroke: var(--food); stroke-linecap: round; }
+html.phone #ph-timer.paused { border-style: dashed; }
+html.phone #ph-timer.done { background: var(--food); color: var(--bg); }
+html.phone #ph-timer.done .ph-t-ring { display: none; }
+
+/* ------------------------------------------------------ Cooking ---- */
+/* On Now: a line per dinner, the label above the dish so the name has the
+   whole width. Tapping one opens it in the Cooking view, as on the wall. */
+html.phone #p-food .body { display: block; }
+html.phone .food-strip { padding: 2px 16px 14px; gap: 8px; }
+html.phone .food-line {
+  flex-direction: column; align-items: stretch; gap: 2px;
+  margin: 0; padding: 10px 12px;
+  background: var(--panel-2); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+}
+html.phone .food-strip.narrow .kicker { width: auto; padding-top: 0; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.6px; }
+html.phone .food-strip.narrow .dish { font-size: 17px; font-weight: 500; }
+
+/* In the Cooking view: the two kinds one above the other, each still a swipe
+   through its suggestions, and every card as tall as its ingredients. */
+html.phone .ck-wrap { display: block; }
+html.phone .ck-stale { padding: 0 16px 4px; font-size: 13px; }
+html.phone .ck-cards { flex-direction: column; gap: 14px; padding: 10px 12px 12px; }
+html.phone .ck-col { flex: none; }
+html.phone .ck-track { flex: none; }
+html.phone .ck-card { padding: 14px 14px 12px; }
+html.phone .ck-title { font-size: 23px; }
+html.phone .ck-ings { flex: none; overflow: visible; }
+html.phone .ck-ing { min-height: 48px; font-size: 16px; }
+html.phone .ck-actions { flex-wrap: wrap; gap: 8px; }
+html.phone .ck-choose { flex: 1 1 100%; }
+html.phone .ck-cookbtn { flex: 1 1 auto; }
+
+/* -------------------------------------------------------- House ---- */
+/* Lights 1 · Lights 2 · Automation across the panel's header: the page's
+   title already says House, so the panel's own name gives them its room —
+   at 390px "Automation" ran off the edge as "Automa". Five tabs since
+   2026-10-20 (AI, Vacuum Cleaner) are more than one row of 390px holds
+   whole, so they wrap: each as wide as its word, each row filled. */
+html.phone #p-ha > header .dot, html.phone #p-ha > header .name { display: none; }
+html.phone #p-ha > header { height: auto; flex-wrap: wrap; }
+html.phone #p-ha > header .ha-tabs { flex: 1 1 auto; flex-wrap: wrap; gap: 4px; min-width: 0; margin: 4px 0; }
+html.phone #p-ha > header .ha-tab { flex: 1 1 auto; min-width: 0; padding: 0 10px; height: 44px; font-size: 14px; }
+/* The dividers between tabs would start the second row with a stray line. */
+html.phone #p-ha > header .ha-tab::before { display: none; }
+/* ⤢ would make the panel the page it already nearly is, and its room is the tabs'. */
+html.phone #p-ha:not(.expanded) > header button.expand { display: none; }
+/* A list of rooms rather than a grid of them. A room that is off is one
+   line — its name and the tap that turns it on; one that is on brings its
+   slider, scenes and colours with it. */
+html.phone #p-ha .body { display: block; }
+html.phone .ha-tiles, html.phone .ha-more { padding: 4px 12px 12px; overflow: visible; }
+/* Automation's rows keep their own 12px sides, as they did as the body's children. */
+html.phone .ha-auto { padding: 4px 0 12px; overflow: visible; }
+html.phone .tiles { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; gap: 8px; }
+html.phone .tile { min-height: 64px; }
+html.phone .tile-main { padding: 12px 14px 12px 16px; min-height: 64px; }
+html.phone .tile .lbl { font-size: 17px; }
+html.phone .tile-emoji { font-size: 30px; }
+html.phone .tile:not(.on) .tile-scenes,
+html.phone .tile:not(.on) .tile-sws,
+html.phone .tile:not(.on) .tile-bri { display: none; }
+html.phone .tile-scenes, html.phone .tile-sws, html.phone .tile-bri { padding: 0 12px 10px 16px; }
+html.phone .tile-scene { height: 38px; font-size: 14px; }
+html.phone .tile-sw { max-width: none; height: 30px; }
+html.phone .tile-gear { width: 52px; }
+
+html.phone .ha-flowers { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0 12px 8px; }
+html.phone .fl { padding: 10px 12px; gap: 8px; }
+html.phone .fl-emoji { font-size: 34px; }
+html.phone .fl .lbl { font-size: 16px; }
+html.phone .fl .sub { font-size: 13px; }
+html.phone .fl-times { flex: 0 0 150px; gap: 6px; }
+html.phone .fl-h { height: 40px; font-size: 14px; }
+html.phone .fl-cap { flex-basis: 24px; font-size: 12px; }
+
+html.phone .ha-phones { padding: 0 12px 8px; gap: 8px; }
+html.phone .phone-row { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+html.phone .phone-card { padding: 10px 12px; gap: 10px; }
+html.phone .phone-emoji { font-size: 28px; }
+html.phone .phone-name { font-size: 16px; }
+html.phone .phone-sub { font-size: 13px; }
+html.phone .phone-ring { min-width: 88px; min-height: 48px; padding: 0 14px; font-size: 17px; }
+html.phone .phone-status { font-size: 14px; }
+html.phone .phone-how { white-space: normal; font-size: 12px; }
+html.phone .db-btn, html.phone .ch-btn { min-width: 72px; }
+html.phone .au-cards { padding: 0 12px; }
+/* The diffuser's card: one column like the rest, its times under the words. */
+html.phone .phone-card.au-card.df-card { grid-column: auto; flex-wrap: wrap; }
+html.phone .df-card .df-runs { order: 5; flex: 1 1 100%; }
+html.phone .df-card .phone-ring.df-run { flex: 1 1 0; min-width: 0; min-height: 48px; font-size: 18px; }
+/* All its buttons in rows of four: 🥂 Guests (and Stop, the strength) ran
+   out of the card beside the three times. */
+html.phone .df-card .df-runs { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 8px; }
+html.phone .df-card .df-runs > .phone-ring { min-width: 0; width: auto; padding: 0 6px; }
+html.phone .df-card .df-runs > .phone-ring[hidden] { display: none; }
+/* A card with a Pause beside its switch (the school alert) left its words
+   "tomorr…": the words keep the first line, the buttons go under them. */
+html.phone .au-card:has(> .au-pz:not([hidden])) { flex-wrap: wrap; }
+html.phone .au-card:has(> .au-pz:not([hidden])) > .phone-txt { flex: 1 1 calc(100% - 60px); }
+html.phone .au-card:has(> .au-pz:not([hidden])) > .au-pz { margin-left: auto; }
+
+html.phone .ha-house { padding: 12px; gap: 10px; }
+html.phone .hh-row { flex-wrap: wrap; gap: 8px; }
+html.phone .hh-cap { flex: 1 1 100%; }
+html.phone .hh-scene { min-width: 0; flex: 1 1 auto; height: 42px; padding: 0 12px; font-size: 14px; }
+html.phone .hh-sw { width: 34px; height: 34px; }
+html.phone .hh-swatches { gap: 6px; }
+
+/* The Cooking view is this panel full-size, so on Now it offers no ⤢ of its
+   own: a dish tapped goes there, and Week, List and Pantry open over the
+   page. */
+html.phone #p-food:not(.expanded) > header button.expand { display: none; }
+
+/* ---------------------------------------------------- Countdown ---- */
+/* On Now the next few, with the rest a scroll inside the card — the page
+   under it is for the other things on Now. */
+html.phone.ph-now #p-countdown .body { max-height: 430px; overflow-y: auto; }
+html.phone #p-countdown .body { padding: 4px 12px 12px; }
+html.phone .cd-card { padding: 10px 12px; gap: 12px; }
+html.phone .cd-card.next { padding-left: 10px; }
+html.phone .cd-num { min-width: 72px; font-size: 30px; letter-spacing: -1px; }
+html.phone .cd-num span { font-size: 13px; }
+/* The name on two lines, and the two weather chips a row of their own the
+   card's full width — side by side in what was left, "feels 10°" and the
+   rain's % were cut off at the chips' edges. */
+html.phone .cd-card { flex-wrap: wrap; align-items: flex-start; }
+html.phone .cd-ctxt { flex: 1 1 0; }
+html.phone .cd-title {
+  font-size: 19px; line-height: 1.25; white-space: normal;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+html.phone .cd-wxs { flex: 1 1 100%; width: auto; gap: 8px; }
+html.phone .cd-wx { padding: 6px 10px; gap: 8px; }
+html.phone .cd-wx-ico { width: 30px; height: 30px; }
+html.phone .cd-wx-temp { font-size: 18px; flex-wrap: wrap; column-gap: 6px; row-gap: 0; }
+html.phone .cd-wx-temp i, html.phone .cd-wx-now .cd-wx-temp i { font-size: 12px; }
+html.phone .cd-wx-city { max-width: none; }
+
+/* ------------------------------------------------------- Timers ---- */
+/* The panel lays its dials out for the room it is given, so it is given a
+   column's worth: three timers one above the other, each with its presets. */
+html.phone #p-timers .body { height: 600px; }
+
+/* ------------------------------------------------ Food spending ---- */
+html.phone #p-spending .body { padding: 4px 12px 12px; }
+html.phone .sp-sum { padding: 10px 12px; }
+html.phone .sp-top { flex-wrap: wrap; gap: 6px 16px; }
+html.phone .sp-big { font-size: 36px; }
+html.phone .sp-side { align-items: flex-start; }
+html.phone .sp-cmp { font-size: 16px; }
+html.phone .sp-cats { font-size: 14px; white-space: normal; }
+html.phone #p-spending.expanded .body { padding: 12px 16px 20px; }
+html.phone .sp-page { height: auto; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+/* Economy's Travel page: one column, and the costs' rows without the paid-in column. */
+html.phone .trv-detail { height: auto; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+html.phone .trv-page { height: auto; }
+html.phone .trv-dfig { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+/* The back button and the chip on one line, the trip's name under them. */
+html.phone .trv-dhead { flex-wrap: wrap; gap: 10px 12px; }
+html.phone .trv-back { order: 1; height: 44px; }
+html.phone .trv-dhead .trv-chip { order: 2; margin-left: auto; }
+html.phone .trv-dtitle { order: 3; flex-basis: 100%; }
+html.phone .trv-dname { white-space: normal; font-size: 24px; }
+html.phone .trv-dval { display: none; }
+html.phone .trv-days { flex-basis: 110px; }
+html.phone .trv-list { overflow: visible; }
+/* A cost as a receipt row is on the phone: the day and kronor on top,
+   what it was and what it was paid in under them. */
+html.phone .trv-row {
+  grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 4px; font-size: 16px;
+}
+html.phone .trv-row .sp-rday { grid-area: 1 / 1; }
+html.phone .trv-row .sp-ramt { grid-area: 1 / 2; }
+html.phone .trv-row .trv-what { grid-area: 2 / 1; font-size: 15px; }
+html.phone .trv-row .trv-orig { grid-area: 2 / 2; font-size: 13px; }
+html.phone .trv-row .trv-cat { display: none; }
+html.phone .trv-row .trv-rbtns { grid-area: 3 / 1 / 4 / 3; }
+
+/* ---------------------------------------------------- the pictures ---- */
+/* Photos and the bird box draw into a box of a given size, so on a phone
+   they are given the screen: everything between the header and the views. */
+html.phone #p-media,
+html.phone #p-camera {
+  height: calc(100dvh - var(--ph-bar) - env(safe-area-inset-top) - 128px);
+  min-height: 360px;
+}
+html.phone #p-media > .body,
+html.phone #p-camera > .body { flex: 1 1 auto; min-height: 0; }
+/* Their headers carry more buttons than a phone is wide: they wrap under
+   the name rather than run off the edge. */
+html.phone #p-media > header,
+html.phone #p-camera > header {
+  height: auto; min-height: var(--touch); flex-wrap: wrap;
+  padding: 8px 10px 8px 16px; row-gap: 8px;
+}
+html.phone #p-media > header .spacer,
+html.phone #p-camera > header .spacer { display: none; }
+html.phone #p-media > header .custom-buttons,
+html.phone #p-camera > header .custom-buttons { flex: 1 1 100%; flex-wrap: wrap; order: 5; }
+html.phone #p-camera > header .custom-buttons button { padding: 0 8px; font-size: 13px; }
+
+/* ------------------------------------------------------------ TV ---- */
+html.phone #p-tv .body { padding: 4px 12px 12px; }
+html.phone .tv-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto;
+  gap: 10px; min-height: 0;
+}
+html.phone .tv-tile { gap: 6px; padding: 12px 14px; min-height: 96px; border-top-width: 3px; }
+html.phone .tv-tile.tv-embeds { border-top-width: 4px; }
+html.phone .tv-mark { font-size: 28px; letter-spacing: -0.5px; }
+html.phone .tv-label { font-size: 16px; }
+html.phone .tv-note { font-size: 12px; }
+html.phone .tv-player { position: fixed; inset: 0; z-index: 46; background: var(--panel); }
+html.phone .tv-nav { padding: calc(env(safe-area-inset-top) + 8px) 10px 8px; gap: 6px; flex-wrap: wrap; }
+html.phone .tv-nb { min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 20px; }
+html.phone .tv-ptitle { font-size: 16px; }
+html.phone .tv-blocked { padding: 24px; }
+
+/* The photograph's buttons: one row across the foot of the picture, the
+   caption above it rather than beside it. */
+html.phone .m-controls { left: 8px; right: 8px; bottom: 10px; justify-content: space-between; gap: 4px; }
+html.phone .m-ctl { width: 50px; height: 50px; }
+html.phone .m-ctl .m-lh { width: 38px; height: 34px; }
+html.phone .m-controls .m-prev { margin-left: 0; }   /* the row is spread already */
+html.phone .m-caption { padding: 12px 14px 72px; }
+/* On this day sits above the caption and the row of buttons under it, at
+   the card's size even when the panel is the whole view (.panel so these
+   outrank the wall's .panel.expanded ones). */
+html.phone .panel .m-otd { left: 14px; bottom: calc(146px + var(--m-cap-lift, 0px)); }
+html.phone .panel .m-otd-k { font-size: 15px; }
+html.phone .panel .m-otd-y { font-size: 48px; letter-spacing: -1.5px; }
+html.phone .panel .m-otd-a { font-size: 16px; margin-top: 0; }
+/* The year and the place, one line, whatever the panel's size: at the
+   wall's three times, or even twice, a phone's width cuts the place before
+   its country. 26px, not the 28 the place had on a line of its own, so a
+   360px phone (the S24) still shows "2025 · Lakeside, Sweden" whole; a
+   longer place ends in "…". The lift is its line and the caption's gap. */
+html.phone .panel .m-cap-big { font-size: 26px; }
+html.phone .panel .m-slideshow:has(> .m-caption:not([hidden]) > .m-cap-big:not([hidden])) {
+  --m-big-lift: 31px;
+}
+html.phone .m-big { width: 88px; height: 88px; }
+/* ✈ in the picture's top right corner: placed under ⚙ as on the wall, it
+   hung in the middle of the band above a portrait photograph. */
+html.phone .panel .m-tgbtn { top: 10px; right: 10px; }
+html.phone .panel .m-tgpick { top: 70px; right: 10px; }
+/* A folder's name its own line and its counts under it: beside each other
+   the counts took the row and the names were "64…", "202…". */
+html.phone .m-node { margin-left: calc(var(--d, 0) * 14px); }
+html.phone .m-twist, html.phone .m-box { width: 40px; }
+html.phone .m-nname { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px 8px 2px; }
+html.phone .m-nlabel { flex: none; max-width: 100%; font-size: 16px; }
+html.phone .m-nmeta { font-size: 13px; white-space: normal; }
+html.phone .m-big .m-gl { width: 40px; height: 40px; }
+html.phone .m-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+/* The Liked and Disliked tiles carry a name and a path under them, and on the
+   Disliked tab two finger-sized buttons across the top — two to a row, not three. */
+html.phone .m-grid.thumbs:has(> .m-kept) { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+html.phone .m-wwhat { flex-basis: 100%; }
+
+/* A view that is one panel already says its name in the page header; the
+   panel's own header keeps only its buttons, and TV's has none. */
+html.phone.ph-single .panel > header .dot,
+html.phone.ph-single .panel > header .name { display: none; }
+html.phone.ph-single #p-tv:not(.expanded) > header { display: none; }
+html.phone.ph-single #p-tv .body { padding-top: 12px; }
+
+/* --------------------------------------------- the weather sheet ---- */
+/* The wall's report is two lists side by side, ten columns an hour. On a
+   phone: the readings in a grid of eight, the hours as a row to swipe, the
+   days as a list with the high, the low and the rain. */
+html.phone #wx-overlay.open { display: block; }
+html.phone #wx-overlay > header,
+html.phone #ts-overlay > header { height: 64px; padding: 0 10px 0 16px; gap: 10px; }
+html.phone #wx-overlay h2, html.phone #ts-overlay h2 { font-size: 24px; font-weight: 600; }
+html.phone #wx-overlay .sub, html.phone #ts-overlay .sub { font-size: 14px; }
+html.phone #wx-close, html.phone #ts-close { height: 44px; min-width: 0; padding: 0 18px; font-size: 15px; }
+html.phone .ts-gear { height: 44px; width: 44px; font-size: 20px; }
+html.phone #wx-now { gap: 14px; padding: 0 16px 12px; }
+html.phone #wx-now .n-ico { width: 52px; height: 52px; }
+html.phone #wx-now .n-temp { font-size: 50px; }
+html.phone #wx-now .n-desc { font-size: 18px; }
+html.phone #wx-now .n-sub { font-size: 14px; gap: 10px; flex-wrap: wrap; }
+html.phone #wx-facts {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;
+  padding: 0 16px 12px; overflow: visible;
+}
+html.phone .wx-fact { min-width: 0; padding: 7px 8px; gap: 1px; }
+html.phone .wx-fact .f-cap { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.phone .wx-fact .f-val { font-size: 18px; }
+html.phone .wx-fact .f-val i { font-size: 11px; margin-left: 2px; }
+html.phone .wx-fact .f-sub { font-size: 11px; min-height: 0; }
+html.phone .wx-cap { padding: 12px 16px 6px; font-size: 13px; }
+html.phone #wx-split { display: block; padding-bottom: 0; }
+html.phone #wx-split > section { display: block; }
+html.phone #wx-split #wx-list, html.phone #wx-split #wk-week { flex: none; }
+html.phone #wx-split #wx-list {
+  flex-direction: row; overflow-x: auto; overflow-y: hidden;
+  gap: 6px; padding: 2px 16px 4px; scrollbar-width: none;
+}
+html.phone #wx-split .wx-hr {
+  flex: 0 0 60px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 0;
+}
+html.phone #wx-split .wx-hr .hr-when { font-size: 12px; }
+html.phone #wx-split .wx-hr .hr-i { width: 26px; height: 26px; }
+html.phone #wx-split .wx-hr .hr-tt { font-size: 17px; }
+html.phone #wx-split .wx-hr .hr-fl,
+html.phone #wx-split .wx-hr .hr-d,
+html.phone #wx-split .wx-hr .hr-c:not(.hr-rain) { display: none; }
+html.phone #wx-split .wx-hr .hr-rain { font-size: 12px; min-height: 15px; }
+html.phone #wx-split #wk-week { padding: 0 16px; gap: 6px; overflow: visible; }
+html.phone #wx-split .wx-wday {
+  grid-template-columns: minmax(0, 1fr) 30px 42px 74px; gap: 8px; padding: 8px 12px;
+}
+html.phone #wx-split .wx-wday .w-desc,
+html.phone #wx-split .wx-wday .w-uv,
+html.phone #wx-split .wx-wday .w-feels-wrap { display: none; }
+html.phone #wx-split .wx-wday .w-name { font-size: 15px; }
+html.phone #wx-split .wx-wday .w-name span { display: block; margin-left: 0; font-size: 12px; }
+html.phone #wx-split .wx-wday .w-ico { width: 30px; height: 30px; }
+html.phone #wx-split .wx-wday .w-rain { font-size: 13px; }
+html.phone #wx-split .wx-wday .w-temp { font-size: 18px; }
+html.phone #wx-split .wx-wday .w-temp span { font-size: 15px; margin-left: 6px; }
+html.phone #wk-foot {
+  height: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px; padding: 16px 16px 24px;
+}
+html.phone #wk-foot > div { padding: 0; }
+html.phone #wk-foot .sep { display: none; }
+html.phone #wk-foot .cap { font-size: 12px; }
+html.phone #wk-foot .val { font-size: 22px; }
+
+/* ----------------------------------------- the other sheets' headers ---- */
+/* Needs attention's (a .sheet of the kit since 2026-10-22): its ⚙ stays on
+   the first line, beside Close, rather than on a line of its own. */
+html.phone #at-sheet > header > .at-gear { order: 2; min-width: 52px; }
+html.phone #at-sheet > header::after { content: none; }
+/* Screen dimming's twenty-four hours: four rows of six on a phone, and its
+   tile's line wraps as the phone box's does — a phone's tiles have no fixed
+   height to keep. */
+html.phone .nt-hours { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html.phone .au-card .phone-sub, html.phone .au-card .phone-status { white-space: normal; }
+html.phone #at-sheet h2, html.phone .cl-title { font-size: 24px; font-weight: 600; }
+/* Needs attention's and the chart's headers (they are not .sheets, see the
+   kit's head in app.css): the name, ⚙ and Close on the first line, Close in
+   the corner, the count under the name; the chart's long name wraps beside
+   its ✕ rather than pushing it to a line of its own. */
+html.phone #at-sheet > header > h2 { order: 1; flex: 1 1 0; min-width: 0; }
+html.phone #at-sheet > header > .at-gear { order: 2; }
+html.phone #at-sheet > header > .at-close { order: 3; }
+html.phone #at-sheet > header > .sub { order: 4; flex-basis: 100%; }
+html.phone #at-sheet > header > .spacer { display: none; }
+html.phone .cl-title { flex: 1 1 0; min-width: 0; }
+/* The two light sheets (#light-sheet, #lx-sheet). A step's caption takes a
+   line of its own here and its slider the width under it, with Leave alone
+   beside the slider — the wall's 200px caption column left a phone's slider
+   no track at all, a bare grip. */
+html.phone :is(.lx-s, .lx-off, .lx-colour) > .lx-cap { flex: 1 1 100%; font-size: 16px; }
+html.phone .lx-s { flex-wrap: wrap; flex-basis: 100%; gap: 6px 12px; }
+html.phone .lx-off { gap: 6px 12px; }
+html.phone .lx-step:has(.lx-colour .lx-sw.on) .lx-sliders { max-width: none; }
+html.phone .sheet-sec.lx-step > .sheet-h { padding-right: 120px; }
+html.phone .lx-del { top: 8px; right: 10px; }
+html.phone .lx-sw { width: 48px; height: 48px; }
+html.phone .lx-step.view { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+html.phone :is(.lx-borrowed, .lx-level) { font-size: 16px; }
+html.phone .sheet > header > .lx-apply { min-height: 48px; }
+html.phone .lx-note { font-size: 14px; }
+html.phone .sheet-sec .ls-label > .lx-paused-line { font-size: 15px; padding-left: 12px; }
+/* The wake-up's quarter hours an hour a line: 04:00 04:15 04:30 04:45. */
+html.phone .sheet-grid.lx-wk-ats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html.phone .sheet-grid:is(.lx-mo-8, .lx-mo-9, .lx-mo-10) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* The colour card: the swatches over the wheel, the wheel a little smaller. */
+html.phone #light-sheet .sheet-sec .ls-colour-set { align-items: center; gap: 20px; padding: 10px 0 18px; }
+html.phone .ls-swatches { grid-template-columns: repeat(5, 56px); gap: 10px; }
+html.phone .ls-sw { width: 56px; height: 56px; }
+html.phone .ls-wheel { width: 220px; height: 220px; }
+html.phone #light-sheet .ls-lamp-set { grid-template-columns: minmax(0, 1fr); padding-bottom: 16px; }
+html.phone #light-sheet .sheet-sec .ls-lamp { padding: 10px 44px 10px 14px; }
+html.phone .ls-lamp > span { font-size: 16px; }
+/* The ladder's two buttons, each the width of the card when they stack. */
+html.phone #light-sheet .ls-sched .sheet-ctl > .ls-btn { flex: 1 1 auto; }
+html.phone .cl-ranges { order: 5; flex: 1 1 100%; margin-left: 0; gap: 6px; }
+html.phone .cl-range { flex: 1 1 0; min-height: 40px; padding: 0 6px; font-size: 14px; }
+/* The chart's: the kit's bar, the width of the line under its name. */
+html.phone #cl-sheet .cl-ranges { display: flex; width: 100%; gap: 1px; }
+html.phone #cl-sheet .cl-range { min-height: 48px; }
+html.phone .cl-bar2 { padding: 12px 16px 12px; gap: 8px; }
+html.phone .cl-legend { flex-basis: 100%; gap: 6px; }
+html.phone .cl-key { min-height: 44px; padding: 0 10px; gap: 7px; }
+html.phone .cl-key-name { font-size: 15px; }
+html.phone .cl-key-now i { display: none; }
+html.phone .cl-metric { min-height: 44px; padding: 0 12px; font-size: 15px; }
+/* Four tabs since PC temperatures (2026-10-22): two rows, not one cut off. */
+html.phone .cl-metrics { flex-wrap: wrap; }
+html.phone .cl-an { min-height: 44px; }
+/* The chart, then its statistics under it, and the whole sheet the one
+   scroller (overflow-y: auto, above). .cl-main used to scroll by itself in
+   what the head and the chips left it, and the PC temperatures tab's
+   nineteen chips left it 24px: the chart a strip nobody could use
+   (2026-10-22). Now it is as tall as what it holds, whatever the chips take,
+   and the head with the ranges and ✕ stays at the top while it scrolls. */
+html.phone .cl-main { flex: 0 0 auto; flex-direction: column; overflow: visible; padding: 8px 12px 16px; }
+html.phone .cl-head { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+html.phone .cl-charts { flex: 0 0 auto; height: 340px; }
+html.phone .cl-stats { flex: 0 0 auto; overflow: visible; }
+
+/* ------------------------------------- spending, filling the screen ---- */
+html.phone .sp-readbody { flex-wrap: wrap; gap: 8px 16px; }
+html.phone .sp-amt { font-size: 44px; }
+html.phone .sp-said { font-size: 16px; }
+html.phone .sp-said-hh { font-size: 14px; }
+html.phone .sp-readhead { flex-wrap: wrap; min-height: 0; gap: 8px; }
+html.phone .sp-chart { --plot: 200px; --gutter: 64px; --colgap: 3px; overflow: hidden; }
+html.phone .sp-x { font-size: 10px; }
+html.phone .sp-cname { font-size: 16px; }
+
+/* ------------------------------------------ the photograph browser ---- */
+html.phone .m-bar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+html.phone .m-bar .m-filter { flex: 1 1 100%; min-width: 0; }
+html.phone .m-mix { flex-wrap: wrap; max-width: 100%; }
+html.phone .m-tabs { padding: 10px 12px 0; }
+html.phone .m-bar .m-mixb { padding: 0 9px; font-size: 13px; }
+
+/* ---- the in-panel settings on the kit (app.css, the same heading) ----
+   Photos' options, the bird box's and the countdown's editor stay in their
+   card on a phone too. Their header line is the kit's on a phone — icon,
+   name and the way out on one line, the status under the name — and their
+   cards' buttons the kit's phone size, as a window's are. */
+html.phone .m-bar.pset-head { min-height: 56px; flex-wrap: wrap; gap: 4px 10px; padding: 6px 8px 6px 14px; }
+html.phone .pset-head > .sheet-title { flex: 1 1 0; min-width: 0; }
+/* The panel's own header buttons are already above it, so the line stays
+   short and the settings keep most of the card: the name on one line (its
+   end given up, the icon dropped), what it is doing now under it. */
+html.phone .pset-head > .sheet-icon { display: none; }
+html.phone .pset-head h2.m-title {
+  font-size: 18px; font-weight: 600; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html.phone .pset-head .sheet-status { font-size: 14px; line-height: 1.3; }
+html.phone .pset-head > .spacer { display: none; }
+html.phone .m-bar.pset-head > .m-back { height: 48px; min-width: 0; padding: 0 18px; font-size: 15px; }
+html.phone .pset-head > .m-saved { order: 10; flex: 1 0 100%; font-size: 15px; }
+html.phone .pset .ls-label { font-size: 17px; }
+html.phone .pset .db-hint { font-size: 15px; padding-right: 0; }
+/* No more weight than html.phone .ls-btn, so the kit's own phone rules for a
+   bar's cells, a switch, a chip and a stepper still win over it, as they do
+   in a window. */
+html.phone :where(.pset :is(.sheet-sec, .sheet-sum)) .ls-btn {
+  min-height: 48px; min-width: 48px; padding: 0 14px; font-size: 16px;
+}
+html.phone .pset :is(.sheet-sec, .sheet-sum) .ls-btn.sheet-primary { min-width: 48px; }
+/* Sixty weeks of columns are too narrow to label each: this week and the
+   first keep theirs. */
+html.phone .sp-col:not(.on):not(:first-child) .sp-x { color: transparent; }
+/* The countdown's editor needs its whole length, even on Now. */
+html.phone.ph-now #p-countdown .body:has(.cd-editor) { max-height: none; }
+/* Its bar stays at the top of the page while the page scrolls: the panel
+   and its body clip rather than scroll while it is open, so the bar is held
+   by the page. Over the body's own (narrower) padding here; and the
+   sentence that typing needs a phone is not for the phone it is read on. */
+html.phone #p-countdown:has(> .body > .cd-editor),
+html.phone #p-countdown > .body:has(> .cd-editor) { overflow: clip; }
+html.phone .cd-editor .cd-ehead {
+  top: calc(env(safe-area-inset-top, 0px) - 4px); margin: -4px -12px 0; padding: 10px 12px;
+}
+html.phone .cd-editor .cd-kbd { display: none; }
+/* The day box is the phone's own picker: a tap opens it, so the box keeps
+   its width for the date rather than for an icon. */
+html.phone .cd-edit > .cd-date-in { padding: 0 10px; min-width: 140px; }
+/* …and the colour's cells give it the width a whole date needs. */
+html.phone .cd-editor .cd-acc { width: 40px; }
+html.phone .cd-edit > .cd-date-in::-webkit-calendar-picker-indicator { display: none; }
+/* A receipt: the day and the amount on one line, where and what under it. */
+html.phone .sp-rrow {
+  grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px;
+  padding: 8px 4px; font-size: 16px;
+}
+html.phone .sp-rday { grid-area: 1 / 1; }
+html.phone .sp-ramt { grid-area: 1 / 2; }
+html.phone .sp-rwhere { grid-area: 2 / 1; font-size: 14px; color: var(--mid); }
+html.phone .sp-rtag { grid-area: 2 / 2; font-size: 13px; text-align: right; }
+html.phone .sp-rlist { overflow: visible; }
+html.phone .sp-cat {
+  flex-basis: auto; height: auto; min-height: 52px; padding: 8px 10px;
+  grid-template-columns: minmax(0, 1fr) auto 44px; gap: 4px 10px;
+}
+html.phone .sp-cname { grid-area: 1 / 1; }
+html.phone .sp-camt { grid-area: 1 / 2; }
+html.phone .sp-cshare { grid-area: 1 / 3; }
+html.phone .sp-cat .sp-track { grid-area: 2 / 1 / 3 / 4; }
+html.phone .sp-camt { font-size: 16px; }
+html.phone .sp-cshare { font-size: 14px; }
+/* The 2026-10-12 additions: the cards two by two, the pie over its legend. */
+html.phone .sp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+html.phone .sp-card { padding: 10px 12px; }
+html.phone .sp-cbig { font-size: 22px; }
+html.phone .sp-shop .sp-cbig { font-size: 17px; }
+html.phone .sp-cline { font-size: 13px; }
+html.phone .sp-pie { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+html.phone .sp-legend { width: 100%; grid-template-columns: minmax(0, 1fr); }
+html.phone .sp-where { overflow: visible; }
+
+/* ----------------------------------------------- a phone on its side ---- */
+/* Height is what a phone turned sideways has least of: the header shrinks
+   to one line, and the pictures take what that gives back. */
+@media (orientation: landscape) {
+  html.phone body { padding-top: calc(env(safe-area-inset-top) + 8px);
+    padding-left: max(var(--ph-pad), env(safe-area-inset-left));
+    padding-right: max(var(--ph-pad), env(safe-area-inset-right)); }
+  html.phone #ph-head { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 14px; }
+  html.phone .ph-title { font-size: 22px; }
+  html.phone #p-media, html.phone #p-camera {
+    height: calc(100dvh - var(--ph-bar) - env(safe-area-inset-top) - 64px);
+    min-height: 240px;
+  }
+}
+
+
+/* ----------------------------- Needs attention's trackers on a phone ---- */
+/* The name and when it was checked on two lines: on one, both were cut to
+   "Alpha Blond…  Checked today …". */
+html.phone .att-tl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; }
+html.phone .att-tl .att-icon { grid-row: 1 / span 2; }
+html.phone .att-tl b { grid-column: 2; font-size: 16px; white-space: normal; }
+html.phone .att-tl i { grid-column: 2; font-size: 13px; white-space: normal; }
+html.phone .att-tl .att-chev { grid-column: 3; grid-row: 1 / span 2; }
+
+/* ---------------------------------------- Radar: the feed on a phone ---- */
+/* The feed first — it is the point — then Coming up and the trackers; the
+   page scrolls, nothing inside it does. The tracker's sheet full screen. */
+html.phone #presets button { position: relative; }
+html.phone #presets .pv-n {
+  top: 0; right: calc(50% - 32px); min-width: 20px; height: 20px; padding: 0 5px;
+  font-size: 12px; border-radius: 10px;
+}
+html.phone #p-radar .body { overflow: visible; }
+html.phone .rf { display: flex; flex-direction: column; height: auto; }
+html.phone .rf-head { padding: 6px 12px 8px; gap: 8px; }
+html.phone .rf-bh { font-size: 22px; }
+html.phone .rf-bs { font-size: 14px; }
+html.phone .rf-f { height: 38px; padding: 0 12px; font-size: 14px; }
+html.phone .rf-filters { gap: 6px; }
+html.phone .rf-list { overflow: visible; padding: 0 12px 12px; }
+html.phone .rf-day > h3 { position: static; padding: 12px 2px 8px; }
+html.phone .rf-story { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 12px 8px 10px; }
+html.phone .rf-cal { width: 52px; }
+html.phone .rf-cal b { font-size: 22px; }
+html.phone .rf-cal i, html.phone .rf-cal em { font-size: 11px; }
+html.phone .rf-ico { font-size: 26px; }
+html.phone .rf-story h4 { font-size: 18px; }
+html.phone .rf-kick { font-size: 14px; }
+html.phone .rf-src, html.phone .rf-by { font-size: 13px; }
+html.phone .rf-src { flex-wrap: wrap; row-gap: 2px; }
+html.phone .rf-src .rf-by { white-space: normal; text-align: left; }
+html.phone .rf-bundle { grid-template-columns: minmax(0, 1fr); }
+html.phone .rf-bundle > .rf-main { grid-column: 1; }
+/* A story's picture across its top, as a news app has it. */
+html.phone .rf-story.has-pic { grid-template-columns: 52px minmax(0, 1fr); }
+html.phone .rf-story.has-pic > .rf-pic {
+  grid-column: 1 / -1; grid-row: 1; aspect-ratio: 16 / 9; border: 0;
+  margin: -12px -12px 0 -10px; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+html.phone .rf-story.has-pic > .rf-side, html.phone .rf-story.has-pic > .rf-main { grid-row: 2; }
+html.phone .rf-pic.rf-banner { height: 130px; }
+html.phone .rf-spic { width: 60px; height: 46px; }
+html.phone .rf-bundle .rf-side { display: none; }
+html.phone .rf-item { align-items: start; }
+html.phone .rf-facts { font-size: 13px; gap: 2px 12px; }
+html.phone .rf-a { height: 40px; min-width: 40px; padding: 0 8px; font-size: 14px; }
+html.phone .rf-item { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
+html.phone .rf-item .rf-cal { width: 44px; }
+html.phone .rf-iacts { grid-column: 2; margin-left: -8px; }
+html.phone .rf-it > b { font-size: 16px; }
+html.phone .rf-line { font-size: 14px; padding: 6px 10px; gap: 8px; }
+html.phone .rf-rail { border-left: 0; border-top: 1px solid var(--rule-soft); padding: 8px 12px 12px; overflow: visible; }
+html.phone .rf-tt b { font-size: 16px; }
+/* A tracker's sheet: full screen and its header the kit's (.sheet); its
+   title wraps here rather than cut, and the sheet scrolls as one under its
+   header, which stays — Close with it. */
+html.phone #rf-sheet h2 { white-space: normal; }
+html.phone #rf-sheet > header { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+html.phone #rf-sheet .ls-body { padding: 12px 14px 20px; overflow: visible; }
+html.phone .rf-sh { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+html.phone .rf-b { height: 48px; padding: 0 12px; font-size: 15px; }
+
+/* The school alert's coming mornings: the day's column narrower on a phone. */
+html.phone #sc-sheet .sc-plan { font-size: 16px; }
+html.phone #sc-sheet .sc-plan li { grid-template-columns: 110px 1fr; gap: 10px; }
+/* At a fixed time its stepper has six steps round the time, more than a phone's
+   line holds: the time on a line of its own, the six under it, sharing theirs. */
+html.phone #sc-sheet .sc-tstep { flex-wrap: wrap; width: 100%; }
+html.phone #sc-sheet .sc-tstep > .sheet-val { order: -1; flex: 1 0 100%; min-height: 48px; }
+html.phone #sc-sheet .sc-tstep > .ls-btn { flex: 1 1 0; min-width: 48px; padding: 0 2px; }
+
+/* Economy's notes box (notes.js): along the bottom of the sheet, always in
+   reach of a thumb — what came of the last note over the box, Notes beside it. */
+html.phone #p-spending.expanded > .ec-notes {
+  position: sticky; bottom: 0; z-index: 2;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--panel);
+}
+/* Two rows by their bases: the answer and Notes cannot leave room for the
+   box beside them, and the box, 🎤 and Add fit together under them. */
+html.phone .an-strip { flex-wrap: wrap; gap: 8px; }
+html.phone .an-strip .an-last { order: -2; flex: 1 1 200px; height: auto; min-height: 44px; padding: 6px 12px; font-size: 14px; }
+html.phone .an-strip .an-all { order: -1; flex: 0 0 auto; height: auto; min-height: 44px; padding: 0 12px; font-size: 14px; }
+html.phone .an-strip .an-box { flex: 1 1 180px; }
+html.phone .an-level { flex: 1 1 30px; }
+html.phone .an-cancel { padding: 0 10px; font-size: 14px; }
+html.phone .an-text { height: 52px; min-height: 52px; padding: 12px 14px; font-size: 16px; line-height: 26px; }
+html.phone .an-rec { height: 52px; gap: 10px; padding: 0 4px 0 12px; font-size: 15px; }
+html.phone .an-said { display: none; }
+html.phone .an-mic, html.phone .an-add { height: 52px; }
+html.phone .an-mic { width: 52px; font-size: 22px; }
+html.phone .an-add { padding: 0 16px; font-size: 16px; }
+html.phone .an-ntext { font-size: 17px; }
+/* The head stays one line: the meta text wraps beside the note's button, so
+   Take back and Answer both sit on the right of the first line. */
+html.phone .an-nhead { flex-wrap: nowrap; align-items: flex-start; font-size: 14px; }
+html.phone .an-nhead .an-mark, html.phone .an-nhead .an-when { flex: none; line-height: 52px; }
+html.phone .an-nhead .an-where { flex: 1 1 0; min-width: 0; padding-top: 15px; line-height: 22px; }
+html.phone .an-nhead .spacer { display: none; }
+html.phone .an-nhead .ls-btn { flex: none; }
+
+/* The box for dates and events (notes.js mountQuick): the views are along the
+   bottom here, so it stands under the view's title (app.js moves it there),
+   one row a thumb's height. */
+html.phone #views-col { display: contents; }
+html.phone #qnote { height: auto; }
+html.phone #qnote.off { display: none; }
+html.phone .qn { height: 52px; gap: 6px; }
+html.phone .qn .an-text { height: 52px; line-height: 50px; font-size: 16px; padding: 0 12px; }
+html.phone .qn .an-mic { width: 52px; height: 52px; font-size: 22px; }
+html.phone .qn .an-add { height: 52px; padding: 0 12px; font-size: 15px; }
+html.phone .qn .an-all { height: 52px; padding: 0 10px; font-size: 14px; }
+html.phone .qn .an-rec { height: 52px; }
+html.phone .qn .an-said { display: none; }
+html.phone .qn-msg { font-size: 13px; white-space: normal; line-height: 1.25; }
+html.phone .qn-line { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html.phone .an-aline { margin-top: 8px; font-size: 17px; }
+html.phone .an-nout { font-size: 16px; padding-left: 10px; }
+html.phone .an-note.st-question { margin: 0 -8px; padding-left: 12px; padding-right: 8px; }
+/* Upcoming's list starts a little under the header's rule, as the kit's
+   bodies do on a phone. */
+html.phone #cd-sheet .cd-sheetbody { padding-top: 12px; }
+
+/* House → AI on a phone: the kinds wrap, one card a row, the sheet full screen. */
+html.phone .ha-tunai { padding: 4px 12px 12px; }
+/* House → Vacuum Cleaner: the map a square over the whole width, the robot's
+   column under it. */
+html.phone .ha-vacuum { padding: 4px 12px 12px; }
+html.phone .vc { flex-direction: column; gap: 12px; }
+html.phone .vc-map { flex: 0 0 auto; aspect-ratio: 1 / 1; }
+html.phone .vc-side { flex: 0 0 auto; overflow: visible; }
+html.phone .vc-way { grid-template-columns: 1fr; }
+html.phone .vc-btn { min-height: 76px; flex-direction: row; align-items: center; }
+html.phone .tn-kind { height: 44px; padding: 0 12px; font-size: 15px; }
+html.phone .tn-state { margin-left: 0; font-size: 14px; }
+html.phone .tn-input .qn .an-text { height: 64px; font-size: 16px; }
+html.phone .tn-input .qn .an-mic { width: 56px; }
+html.phone .tn-input .qn.audio .an-mic { width: 140px; }
+html.phone .tn-input .qn .an-add { padding: 0 14px; font-size: 16px; }
+html.phone .tn-list { grid-template-columns: minmax(0, 1fr); overflow: visible; }
+html.phone #tn-sheet h2 { font-size: 20px; }
+html.phone #tn-sheet .ls-body { padding: 12px 12px 24px; }
+html.phone .tn-text.full { font-size: 17px; }
+
+/* The fire alarm's banner (firealarm.js): across the top, the words over a
+   Silence the width of the phone. */
+html.phone #fa-banner {
+  left: 10px; right: 10px; top: calc(10px + env(safe-area-inset-top)); transform: none;
+  flex-wrap: wrap; gap: 10px 14px; padding: 14px 16px;
+}
+html.phone #fa-banner .fa-icon { font-size: 36px; }
+html.phone #fa-banner .fa-txt { flex: 1 1 0; min-width: 0; font-size: 15px; }
+html.phone #fa-banner .fa-txt b { font-size: 22px; }
+html.phone #fa-banner .fa-hush { flex: 1 1 100%; height: 64px; }
+/* The diffuser's pause row (2026-10-21) gets a line of its own on a phone. */
+html.phone .df-card .df-pause { order: 4; flex: 1 1 100%; justify-content: flex-start; }
+html.phone .df-card .df-pz { flex: 1 1 0; min-width: 0; min-height: 48px; font-size: 18px; }
+
+/* The fire alarm's sheet (firealarm.js): Silence the width of the phone and
+   taller than the rest, first in its card with its answer under it; the
+   banner at the foot while the sheet is up. */
+html.phone #fa-sheet .fa-silence { width: 100%; min-height: 60px; font-size: 19px; }
+html.phone #fa-sheet .fa-nowrow > .fa-hushctl { order: -1; }
+html.phone body:has(#fa-banner:not([hidden])) #fa-sheet > .ls-body { padding-bottom: 200px; }
+html.phone body:has(#fa-sheet.open) #fa-banner { top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); }
+
+/* The Sensors sheet (sensors.js): the names' wells take the row; an alert's
+   three lines each with its name on a line of its own, its controls under it. */
+html.phone #sn-sheet .sn-name { width: 100%; }
+html.phone #sn-sheet .sa-rule { padding: 12px; }
+/* A rule's ✕ at the rule's top right, beside its first label, not alone on a line. */
+html.phone #sn-sheet .sa-rule { position: relative; }
+html.phone #sn-sheet .sa-rule > .sn-lim:first-child > .sn-ll { padding-right: 76px; min-height: 48px; display: flex; align-items: center; }
+html.phone #sn-sheet .sa-rule .sa-gap { display: none; }
+html.phone #sn-sheet .sa-rule .sa-x { position: absolute; top: 12px; right: 12px; }
+html.phone #sn-sheet .sn-ll { flex-basis: 100%; padding-top: 0; font-size: 16px; }
+html.phone #sn-sheet .sa-ctl { flex-basis: 100%; }
+html.phone #sn-sheet .sa-after > .ls-btn { flex: 1 0 calc((100% - 4px) / 5); padding: 0 2px; font-size: 15px; white-space: nowrap; }
+html.phone #sn-sheet .sn-how { height: auto; padding: 10px 14px; text-align: left; }
+
+/* The PC temperatures sheet (pctemps.js): 📈 History a button under the name,
+   not a line of 14px; Too hot above as wide as its controls. */
+html.phone #pt-sheet > header .pt-hist { flex-basis: auto; height: 48px; font-size: 16px; }
+html.phone #pt-sheet .pt-grp { flex-basis: 100%; }
+html.phone #pt-sheet .pt-abovegrp { min-width: 0; }
+html.phone #pt-sheet .pt-above .sheet-val { min-width: 80px; }
+/* A sensor's two settings each on one line, its caption beside it. */
+html.phone #pt-sheet .pt-row .pt-grp { flex-direction: row; align-items: center; gap: 10px; }
+html.phone #pt-sheet .pt-row .pt-grp > .sheet-cap { flex: 0 0 84px; margin: 0; line-height: 1.25; }
+html.phone #pt-sheet .pt-how { height: auto; padding: 10px 14px; text-align: left; }
+
+/* The dim clock's two corners on a phone (Show me works on any screen): the
+   wall's sunrise and sunset and its moon are each wider than half a phone,
+   so at half their size, each in its own corner, rather than one on top of
+   the other. */
+html.phone #nt-overlay > .nt-sun, html.phone #nt-overlay > .nt-moon { top: 12px; transform: scale(0.5); }
+html.phone #nt-overlay > .nt-sun { left: 12px; transform-origin: top left; }
+html.phone #nt-overlay > .nt-moon { right: 12px; transform-origin: top right; }
+
+/* The dim clock's illustrations (look 2) on a phone: the picture covers the
+   phone as it covers the wall, but stood up it is a narrow slice of a wide
+   painting, so the slice is its left, where the cottage is. In the sheet the
+   two looks one under the other, their pictures smaller. */
+html.phone .nl-pan > img { object-position: 12% 50%; }
+html.phone #nt-sheet .nl-picks { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+html.phone .nl-pick { min-height: 0; gap: 14px; padding: 10px 14px 10px 10px; }
+html.phone .nl-thumb { width: 144px; height: 81px; }
+html.phone .nl-mini { font-size: 26px; letter-spacing: -0.8px; }
+html.phone .nl-what b { font-size: 18px; }
+html.phone .nl-what span { font-size: 14px; }
+
+/* Ask the kitchen (ask.js): the whole screen on a phone. */
+html.phone #ask-sheet { inset: 0; background: var(--panel); align-items: stretch; }
+html.phone #ask-sheet .ask-box { width: 100%; max-height: none; border-radius: 0; border: 0; padding: 18px 16px; }
+html.phone .ask-answer { font-size: 22px; }
+html.phone #ph-head { position: relative; }
+html.phone #ph-head > #ask-btn {
+  position: absolute; top: 2px; right: 0; width: 52px; height: 52px; border-radius: 26px;
+  background: var(--panel-2); border: 1px solid var(--rule); font-size: 24px;
+}

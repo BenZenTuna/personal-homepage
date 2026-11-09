@@ -9,7 +9,8 @@
 //
 // It owns no state. Everything here arrives on the `motion` key of the SSE bus
 // that the Birds view reads, so the two always agree, and a tap hands over to
-// that view, where the stills, the settings and the log are.
+// that view's log of recordings (Alex, 2026-10-30: "clicking here should show
+// the bird box video recordings"); the Birds button is the live picture.
 //
 // It has a second, smaller surface: `mini`, which app.js hangs in the clock's
 // column when a panel fills the screen with a picture. A full-screen photograph
@@ -35,18 +36,15 @@ export default {
       </span>
       <span class="mo-thumbs"></span>`;
     this.nEl = this.el.querySelector('.mo-n');
+    this.txtEl = this.el.querySelector('.mo-txt i');
     this.thumbs = this.el.querySelector('.mo-thumbs');
     this.drawn = null;                   // which stills are on screen already
 
-    const open = () => ctx.setPreset('birds');
+    const open = () => { ctx.setPreset('birds'); ctx.ask('camera', 'events'); };
     this.el.addEventListener('click', open);
-    /* The stills are the exception. The block as a whole means "show me the
-       bird box", which is the live picture; a finger on one of these three
-       means "show me that one", and the log behind the Birds view is where
-       that picture and its clip actually are. Same view either way, so the
-       tap is never a surprise — it opens one screen further in.
-       On the thumbnails rather than on each still: they are redrawn whenever
-       the camera reports, and a handler per image is a handler to lose. */
+    /* The stills open the same log as the block. Kept as their own handler
+       (on the thumbnails rather than on each still: they are redrawn whenever
+       the camera reports, and a handler per image is a handler to lose). */
     this.thumbs.addEventListener('click', (e) => {
       if (!e.target.closest('.mo-th')) return;
       e.stopPropagation();              // ...or the block's own tap follows it
@@ -95,7 +93,16 @@ export default {
     // Quiet rather than absent: a nought is an answer, and the block has to
     // keep its shape or the views beside it would move as birds came and went.
     this.el.classList.toggle('quiet', !n);
-    this.el.classList.toggle('off', m.settings && m.settings.alerts === false);
+    const off = !!(m.settings && m.settings.alerts === false);
+    this.el.classList.toggle('off', off);
+    /* Alerts being switched off is said on this line now, the way the chip
+       over a picture has always said it. It used to be said only where the
+       stills go, and the readings that moved in beside this block took that
+       room: see .mo-none in app.css, which is hidden while they are there.
+       The line under the name is the one place in this card with the width
+       for it, and "0 · motion, last 24 hours" with the alerts off is a nought
+       that means something else entirely. */
+    this.txtEl.textContent = off ? 'alerts are off' : 'motion, last 24 hours';
 
     const shots = (m.events || []).filter((e) => e.snapshot_url).slice(0, THUMBS);
     // The stills are full-size frames off the camera; redrawing the same three

@@ -28,18 +28,15 @@ export default {
     // Tinted with the house hue and marked with a door, because it is both a
     // part of this corner of the wall and the way out of it: as a grey strip
     // it read as a footer nobody had to look at.
-    //
-    // svc.display is the demo's one addition: the real panel prints the url,
-    // which here would be the local file standing in for the house index.
     body.innerHTML = `
       <a class="ha-svc" href="${this.esc(url)}" target="_blank" rel="noreferrer">
         <span class="ha-svc-mark">⌂</span>
         <span class="ha-svc-txt">
           <span class="ha-svc-name">${this.esc(svc.label || 'Home')}</span>
           <span class="ha-svc-desc">Every service on the house network —
-            automation, storage, cameras, the lot</span>
+            Home Assistant, the NAS, Pi-hole, the cameras, the AI tools</span>
         </span>
-        <span class="ha-svc-url">${this.esc((svc.display || url).replace(/\/$/, ''))}</span>
+        <span class="ha-svc-url">${this.esc(url.replace(/\/$/, ''))}</span>
         <span class="ha-svc-go">Open ↗</span>
       </a>`;
   },

@@ -1,23 +1,78 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script src="demo/fixtures.js"></script>
+<script src="demo/server.js"></script>
+
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kitchen wall — demo</title>
-<meta name="description" content="A browsable demo of a wall-mounted kitchen dashboard: weather, bird box, photos, lights, dinner suggestions and kitchen timers. Nothing is connected — every reading is made up.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14120f">
+<title>Kitchen wall — demo</title>
+<meta name="description" content="A demo of a home-made kitchen wall dashboard, with a made-up household.">
+<!-- A phone gets a layout of its own: one column, the views along the bottom.
+     Marked here, before a single stylesheet has loaded, so a phone never
+     paints the wall's layout first; every rule in phone.css starts with
+     html.phone, so nothing else is touched by it. The wall and every laptop
+     are wider than this and never match. A screen that crosses the line (a
+     window dragged narrow, a phone turned) loads again as the other one. -->
+<script>
+  (function () {
+    var q = matchMedia('(max-width: 700px), (max-height: 500px) and (pointer: coarse)');
+    if (q.matches) document.documentElement.classList.add('phone');
+    q.addEventListener('change', function () { location.reload(); });
+  })();
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍳</text></svg>">
-<link rel="stylesheet" href="fonts/fonts.css?v=2">
-<link rel="stylesheet" href="css/app.css?v=2">
-<link rel="stylesheet" href="css/demo.css?v=2">
+<!-- The one piece of code that does not depend on anything else loading. This
+     page can arrive while its stylesheets and modules cannot (the wall' Wi-Fi
+     drops for a few seconds just after a resume), and then no module ever
+     runs to notice or retry: the wall stayed on a dead page for hours. If the
+     dashboard has not finished starting 30 s after this page arrived, load it
+     again — waiting twice as long each time it has to, up to five minutes, so
+     a deploy that cannot start is not reloaded every thirty seconds all night.
+     And only once the server has said {"ok": true} twice in a row (asked
+     every five seconds): the wall opens kitchen.home through the workstation's nginx,
+     and a reload while the kitchen is away is nginx's page, which has none of
+     this on it and never tries again (sse.js's reloadWhenReachable() is the
+     same rule for the modules, which cannot be imported here).
+     Before the stylesheets on purpose: an inline script placed after a
+     stylesheet waits for that stylesheet. app.js sets the flag at the end of
+     boot(). Never write the build marker in here: index() replaces it
+     everywhere in this file, comments and scripts included. -->
+<script>
+  (function () {
+    var KEY = 'kitchen-boot-tries', tries = 0, good = 0;
+    try { tries = +sessionStorage.getItem(KEY) || 0; } catch (e) {}
+    function ask() {
+      if (window.kitchenBooted) {
+        try { sessionStorage.removeItem(KEY); } catch (e) {}
+        return;
+      }
+      var abort = new AbortController();
+      var timer = setTimeout(function () { abort.abort(); }, 3000);
+      fetch('/api/health', { cache: 'no-store', signal: abort.signal })
+        .then(function (r) { return r.ok && r.json(); })
+        .then(function (j) { return !!j && j.ok === true; }, function () { return false; })
+        .then(function (ok) {
+          clearTimeout(timer);
+          good = ok ? good + 1 : 0;
+          if (good < 2) return setTimeout(ask, 5000);
+          if (window.kitchenBooted) return ask();   // it started meanwhile
+          try { sessionStorage.setItem(KEY, tries + 1); } catch (e) {}
+          location.reload();
+        });
+    }
+    setTimeout(ask, Math.min(30000 * Math.pow(2, tries), 300000));
+  })();
+</script>
+<!-- The build marker below is replaced with the current build id when the
+     server renders this page, so a deploy is never half-applied from a
+     browser cache. See index() in backend/app/main.py. -->
+<link rel="stylesheet" href="fonts/fonts.css?demo">
+<link rel="stylesheet" href="css/app.css?demo">
+<link rel="stylesheet" href="css/phone.css?demo">
 </head>
 <body>
-
-<!-- The demo's fake backend. Plain scripts, so they run before the module
-     below: by the time the dashboard calls fetch() or opens its event stream,
-     both have been replaced. -->
-<script src="demo/data.js?v=2"></script>
-<script src="demo/api.js?v=2"></script>
 
 <header id="topbar">
   <div class="hd-clock">
@@ -47,169 +102,76 @@
   <div id="hd-motion" role="button" tabindex="0"
        aria-label="what the bird box has seen"></div>
 
+  <!-- What the rooms are, beside what the sky is. The bird box gave up some
+       of its width for it: that card is the only one in this bar that was
+       ever elastic, and three of its thumbnails were three pictures of the
+       same empty hallway. Filled by climate.js, which also owns the chart
+       this opens. -->
+  <div id="hd-climate"></div>
+
+  <!-- Needs attention: here only while something in the house is waiting for a
+       person (a flat battery, a lamp not answering, a backup missed). It takes
+       its width from the bird box and nothing else, so the views never move.
+       Filled by attention.js, which also owns the sheet it opens. -->
+  <div id="hd-attn" hidden></div>
+
   <div class="hd-rule"></div>
 
-  <nav id="presets" aria-label="layout presets"></nav>
+  <!-- The views, and under them the box for notes to the kitchen agent
+       (notes.js, 2026-10-19): one column, moved as one into a full-screen
+       panel's header and back. -->
+  <div id="views-col">
+    <nav id="presets" aria-label="layout presets"></nav>
+    <div id="qnote"></div>
+  </div>
 
-  <!-- The corner right of the views. It is the same width in every view, which
-       is what keeps the six view buttons at one place on the glass — so the
-       demo's own chip goes inside it, under Live, rather than beside the tools
-       where it would push them left. -->
+  <!-- The corner right of the views. It is the same width in every view —
+       here it holds the tools and Live, and a panel filling the screen puts
+       its ⤢ in the same room — which is what keeps the six views at one place
+       on the glass. The tools act on the view you are looking at, so they sit
+       against the buttons that choose it. Live is not one of them — it is a
+       state, not a control — so it sits beside the block. -->
   <div class="hd-right">
     <div class="hd-tools">
-      <!-- Next to the view buttons on purpose: it arranges the view they
-           choose. -->
-      <button id="layout-btn" class="gear" title="arrange this view"
-              aria-label="arrange this view">⚙</button>
-      <button id="meal-btn" title="meal time — dim the screen for 30 minutes"
-              aria-label="meal time">🍽</button>
+      <button id="layout-btn" class="gear" title="settings: this view's arrangement and the wall's"
+              aria-label="settings">⚙</button>
+      <button id="dim-btn" title="dim the screen now — the clock of Screen dimming, until a tap"
+              aria-label="dim the screen">🌙</button>
+      <button id="ask-btn" title="ask the kitchen — tap, say it, hear the answer"
+              aria-label="ask the kitchen">🎤</button>
       <button id="full-btn" title="full screen" aria-label="full screen">⛶</button>
     </div>
 
-    <div class="demo-corner">
-      <div class="hd-live">
-        <span id="conn-dot"></span><span id="conn-text">Live</span>
-      </div>
-      <!-- The one control that is not part of the real dashboard: what this
-           is, and how to put it back the way it was found. -->
-      <button id="demo-pill" title="what this is">Demo</button>
+    <div class="hd-live">
+      <span id="conn-dot"></span><span id="conn-text">Live</span>
     </div>
   </div>
 </header>
 
-<!-- Meal time: the screen goes black for half an hour so a lit wall does not
-     sit in the middle of dinner. Deliberately not a panel — it covers
-     everything, including a panel someone left expanded. -->
-<div id="meal-overlay" hidden>
-  <div id="meal-clock">30:00</div>
-  <div id="meal-note">Meal time</div>
-  <button id="meal-end">End</button>
-</div>
 
 <!-- Arrangements of the current view. Built by app.js; each option carries a
      scale drawing of the layout it applies, because the words for "photos get
      the whole width" are longer than the picture and less certain. -->
-<div id="layout-overlay" hidden>
+<!-- The ⚙ Settings window: a .sheet of the settings window kit (app.css). -->
+<div id="layout-overlay" class="sheet" role="dialog" aria-labelledby="lay-title" hidden>
   <header>
-    <div>
+    <span class="sheet-icon" aria-hidden="true">⚙</span>
+    <div class="sheet-title">
       <h2 id="lay-title">Arrange</h2>
-      <div class="sub" id="lay-sub"></div>
+      <span class="sheet-status" id="lay-sub"></span>
     </div>
     <span class="spacer"></span>
-    <button id="lay-close">Close</button>
+    <!-- How each alert shows (Needs attention's own ⚙), reachable here too:
+         that window only opens from its chip, and with nothing to say there
+         is no chip. -->
+    <button id="lay-alerts" class="ls-btn" hidden>🔔 How alerts show</button>
+    <button id="lay-close" class="ls-close">Close</button>
   </header>
-  <div id="lay-options"></div>
+  <div id="lay-options" class="ls-body"></div>
 </div>
 
 <main id="grid"></main>
 
-<!-- ============================ the demo's own bits ==================== -->
-
-<div id="demo-intro" hidden>
-  <div class="demo-card">
-    <h1>Kitchen wall</h1>
-    <p class="demo-lede">An old laptop screwed flat to the kitchen wall, lid
-      open, one cable out of the corner, running all day. It turns the house
-      lights on, works out what is for dinner, pulls ten years of photographs
-      off the NAS in the cupboard, and watches the birds nesting on the
-      balcony. This is that same
-      interface with a made-up server behind it — every reading on the page is
-      invented, and nothing here reaches a house.</p>
-
-    <figure class="demo-shots">
-      <div>
-        <img src="media/wall-mounted.jpg?v=2" width="900" height="506" loading="lazy"
-             alt="A laptop screwed flat to a red kitchen wall, lid open, running the dashboard.">
-        <figcaption>The laptop itself, screwed flat to the wall with its lid open
-          and one cable out of the top corner. The blurred panel is the
-          household's own calendar.</figcaption>
-      </div>
-      <div>
-        <img src="media/hue-sensor.jpg?v=2" width="900" height="506" loading="lazy"
-             alt="A Hue motion sensor on a kitchen shelf, lit pink by the room's lights.">
-        <figcaption>The Hue motion sensor on the shelf by the door — what tells
-          the server somebody has walked into the kitchen, and wakes the
-          screen.</figcaption>
-      </div>
-    </figure>
-
-    <ul class="demo-list">
-      <li><b>The lights, from the wall.</b> Every room the house has a bulb in,
-        through Home Assistant and the Hue bridge — one tap a room, one tap the
-        lot — so nobody has to find a phone and wait for an app while carrying
-        a hot pan.</li>
-      <li><b>Dinner, worked out rather than looked up.</b> Photographs go to an
-        AI agent — the open fridge, the shelves, a page of a recipe book, the
-        supermarket receipt — and what comes back is a week of dinners, one
-        vegetarian and one not for every day, cooked from what is already in
-        the cupboards. Today's two are on the cards; <b>Week</b> is the rest of
-        the plan, and one tap puts everything it still needs on the shopping
-        list. Choose a dinner and it lays the cooking out as steps, one at a
-        time, big enough to read from across the kitchen with both hands
-        full.</li>
-      <li><b>It sleeps when the kitchen is empty.</b> The wall is a Home
-        Assistant client like any other: a Hue motion sensor sees somebody walk
-        in and the screen comes back, and when the room has been still a while
-        it goes dark. A lit screen nobody is standing at is a lamp pointed at
-        the ceiling.</li>
-      <li><b>Everything the house has ever photographed.</b> The pictures and
-        videos live on the NAS in the cupboard, and the wall reaches into them
-        all day — a few hundred pulled across at a time and shown at random, so
-        a decade of holidays and small children keeps surfacing between the
-        forecast and the shopping list. The <b>♥</b> keeps one on the server, so
-        it goes on playing with the NAS asleep; the <b>👎</b> takes one out of
-        the show for good and writes its path down for deleting later.</li>
-      <li><b>The birds on the balcony.</b> A camera inside the nest box out
-        there, streamed to the panel. It watches for movement on its own chip
-        and tells the wall: the block along the top bar is how many times
-        something has come to the box today and the last three stills of it, and
-        behind that is every one of them, steppable with <b>‹ ›</b>. The wall can
-        chime when it reports and flash the lights in whichever rooms are too
-        far away to hear it. The clip looping in this demo is not that stream:
-        it is AI-generated, a stand-in for what the box will show when the new
-        nesting season comes round, and the stills in the log are frames cut
-        out of it.</li>
-    </ul>
-
-    <p class="demo-head">Looking around this copy</p>
-
-    <ul class="demo-list">
-      <li><b>Six views</b> along the top — Everything, Cooking, House, Photos,
-        Birds, TV — each in the colour its own panels use, and the gear beside
-        them rearranges the one you are on.</li>
-      <li><b>Everything is touch-first.</b> Nothing is smaller than a fingertip
-        and there are no hover states. Any panel takes the whole screen with
-        <b>⤢</b>, and carries the clock, the weather and the views up with it —
-        the six buttons stay at the same place on the glass in every view.</li>
-      <li><b>Tap the temperature</b> for the whole report: the next two days
-        hour by hour beside the next ten days. <b>The bird box block</b> opens
-        the birds, and one of its stills opens that still. <b>The clock</b> is
-        timers and world clocks.</li>
-      <li><b>It answers.</b> Lights toggle and dim, dinners can be chosen and
-        rated, timers run, ingredients tick off onto a shopping list, the bird
-        box will report if you ask it to (<i>Test motion</i>, behind the gear on
-        Birds), and a kept photograph stays kept — all of it held in your
-        browser and thrown away by <i>Reset</i>.</li>
-    </ul>
-
-    <p class="demo-narrow">You are on a small screen, and this is drawn for a
-      1920×1080 wall. It still works — turn the phone sideways, or open it on a
-      laptop to see it at the size it was designed for.</p>
-
-    <p class="demo-fine">The photographs are the house's own; the bird box clip
-      is AI-generated, and the stills in its log are frames cut out of that
-      clip. Everything else — the weather, the rooms, the dinners, the week, the
-      events, the channels, every visit to the box — is invented. No live data,
-      no accounts, nothing leaves this page.</p>
-
-    <div class="demo-actions">
-      <button id="demo-go">Look around</button>
-      <button id="demo-reset" class="ghost">Reset the demo</button>
-    </div>
-  </div>
-</div>
-
-<script type="module" src="js/app.js?v=2"></script>
-<script src="demo/badge.js?v=2"></script>
+<script type="module" src="js/app.js?demo"></script>
 </body>
 </html>

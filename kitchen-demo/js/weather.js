@@ -115,6 +115,15 @@ function humidityWord(v) {
   return 'very humid';
 }
 
+/* A forecast time as milliseconds. weather.py sends epoch seconds (since
+   2026-10-21: Open-Meteo's local strings used one offset for a whole answer,
+   so after a clock change every hour was labelled an hour out until the next
+   fetch); the browser says them in the kitchen's time. A string is an older
+   server's — or the demo's — local time, read as it always was. */
+function ms(t) {
+  return typeof t === 'number' ? t * 1000 : Date.parse(t);
+}
+
 function describe(code) {
   if (code === 0) return 'Clear';
   if (code === 1) return 'Mostly clear';
@@ -135,6 +144,9 @@ export default {
   // forecast at an event's city. app.js hands it over on the panel context.
   icon,
   describe,
+  // The one reading of a row's `t` (and a day's sunrise and sunset), for
+  // night.js and phone.js as much as for this file.
+  ms,
 
   /* A second, much smaller "now" — the header of a panel that has taken the
      whole screen, where the real one is hidden underneath. Handed the element
@@ -173,6 +185,17 @@ export default {
         : Math.round(now.feels) === Math.round(now.temp) ? 'feels the same'
         : `feels ${Math.round(now.feels)}°`;
     }
+    /* Where the reading is *from*. The top bar has named the town since the
+       beginning, in the little line under the condition; over a picture that
+       line is not there and the temperature stood on its own. It matters
+       here more than it does down there, not less: this is the one weather
+       figure on a screen showing a photograph taken somewhere else. */
+    const city = el.querySelector('.hx-city');
+    if (city) city.textContent = this.data?.city || '';
+    // The humidity outside, over a picture (2026-10-13, Alex asked), on its
+    // own line under "feels" and the town.
+    const rh = el.querySelector('.hx-rh');
+    if (rh) rh.textContent = now.rh == null ? '' : `humidity ${Math.round(now.rh)} % · ${humidityWord(now.rh)}`;
   },
 
   /* The hours down the left of a panel that has taken the whole screen.
@@ -203,7 +226,7 @@ export default {
     const i = Math.max(0, this.nowIndex(hours));
     el.classList.toggle('weather-stale', !!d.stale);
     el.innerHTML = hours.slice(i, i + COLUMN_HOURS).map((h, n) => {
-      const dt = new Date(h.t);
+      const dt = new Date(ms(h.t));
       const midnight = dt.getHours() === 0;
       // Same labelling as the header band: "now" first, and a weekday where a
       // new day starts, because "00:00" alone never says which day it opens.
@@ -232,15 +255,30 @@ export default {
      the report lives behind. A wall screen has no hover to say that a reading
      is also a button, which is why it gets a lit border when pressed. */
   wireNow() {
-    const el = document.querySelector('.hd-now');
+    this.wire(document.querySelector('.hd-now'));
+  },
+
+  /* A reading that opens the report. The top bar's "now" block is one; the
+     copy a full-screen panel carries up into its own header (mirror() above)
+     is the other, and over a picture that copy is the only weather on the
+     glass. It was never wired until 2026-09-28, so there a tap did nothing.
+     The header's copy stops the tap there (`stop`), as the clock beside it
+     does: nothing under the header should hear a tap meant for the weather. */
+  wire(el, { stop = false } = {}) {
     if (!el) return;
     el.classList.add('tappable');
     el.setAttribute('role', 'button');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', 'the full forecast');
-    el.addEventListener('click', () => this.openOverlay());
+    el.addEventListener('click', (e) => {
+      if (stop) e.stopPropagation();
+      this.openOverlay();
+    });
     el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openOverlay(); }
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (stop) e.stopPropagation();
+      this.openOverlay();
     });
   },
 
@@ -298,12 +336,14 @@ export default {
     if (this.overlay.classList.contains('open')) this.renderOverlay();
   },
 
-  /* index of the hour containing "now", or -1 */
+  /* index of the hour containing "now", or -1. By the instant, not by the
+     hour's name: the night the clocks go back has two 02:00s, and the second
+     one is its own row. */
   nowIndex(hours) {
-    const now = new Date();
+    const now = Date.now();
     return hours.findIndex((h) => {
-      const d = new Date(h.t);
-      return d.getDate() === now.getDate() && d.getHours() === now.getHours();
+      const t = ms(h.t);
+      return t <= now && now < t + 3600000;
     });
   },
 
@@ -394,7 +434,7 @@ export default {
        column even when the reading is missing, so the eye runs down "humidity"
        rather than hunting for it on each line. */
     document.getElementById('wx-list').innerHTML = hours.map((h, n) => {
-      const dt = new Date(h.t);
+      const dt = new Date(ms(h.t));
       const uv = uvBand(h.uv);
       const aq = aqiBand(h.aqi);
       return `<div class="wx-hr${h.day ? '' : ' night'}${n === 0 ? ' now' : ''}">
@@ -433,8 +473,8 @@ export default {
         const feels = d.fmax == null ? ''
           : `<span class="w-feels">feels ${Math.round(d.fmax)}° / ${Math.round(d.fmin)}°</span>`;
         const sun = d.sunrise && d.sunset
-          ? `<span class="w-sun">☀ ${this.hhmm(Date.parse(d.sunrise))} – ${
-              this.hhmm(Date.parse(d.sunset))}</span>` : '';
+          ? `<span class="w-sun">☀ ${this.hhmm(ms(d.sunrise))} – ${
+              this.hhmm(ms(d.sunset))}</span>` : '';
         const uv = uvBand(d.uv);
         return `<div class="wx-wday${n === 0 ? ' today' : ''}">
           <div class="w-name">${name}<span>${
