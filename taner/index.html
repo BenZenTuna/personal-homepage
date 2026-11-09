@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<script>
+  // Motion effects (taner-motion.js) only for visitors who haven't asked to reduce motion
+  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) document.documentElement.classList.add('motion');
+</script>
 <title>Taner Tuna — personal page · tunas.me</title>
 <meta name="description" content="Personal page of Taner Tuna — chemist turned AI &amp; digital tinkerer, vibe coder, amateur documentarian, and t-shirt designer for the things I love.">
 <meta name="author" content="Taner Tuna">
@@ -386,6 +390,82 @@
     text-transform: uppercase; color: var(--accent);
     text-align: center;
   }
+  /* ---------- Motion (taner-motion.js; only under html.motion) ---------- */
+  /* Hero arrives: portraits from both sides, the name written on */
+  .motion .hero .portrait--chemist { animation: hero-left 1100ms cubic-bezier(.2,.8,.2,1) 80ms backwards; }
+  .motion .hero .portrait--digital { animation: hero-right 1100ms cubic-bezier(.2,.8,.2,1) 180ms backwards; }
+  .motion .hero .hero-eyebrow { animation: fade-up 800ms ease 500ms backwards; }
+  .motion .hero .name { animation: write-on 1500ms cubic-bezier(.6,0,.2,1) 650ms backwards; }
+  .motion .hero .hero-sub { animation: fade-up 900ms ease 1500ms backwards; }
+  .motion .hero .scroll-cue { animation: fade-up 900ms ease 1900ms backwards; }
+  @keyframes hero-left  { from { opacity: 0; transform: translateX(-60px) rotate(-3deg) scale(0.96); } }
+  @keyframes hero-right { from { opacity: 0; transform: translateX(60px) rotate(3deg) scale(0.96); } }
+  @keyframes fade-up    { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes write-on {
+    from { clip-path: inset(-25% 105% -25% -10%); }
+    to   { clip-path: inset(-25% -10% -25% -10%); }
+  }
+
+  /* Content builds itself in */
+  .motion .rise:not(.in) { opacity: 0; }
+  .motion .rise.in { animation: rise-in 850ms cubic-bezier(.2,.8,.2,1) backwards; animation-delay: var(--d, 0ms); }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(32px) scale(0.98); } }
+  .section-title .word { display: inline-block; white-space: nowrap; }
+  .section-title .ch { display: inline-block; }
+  .motion .rise-letters:not(.in) .ch { opacity: 0; }
+  .motion .rise-letters.in .ch {
+    animation: letter-in 750ms cubic-bezier(.2,.8,.2,1) backwards;
+    animation-delay: calc(var(--d, 0ms) + var(--c) * 34ms);
+  }
+  @keyframes letter-in { from { opacity: 0; transform: translateY(0.55em) rotate(6deg); filter: blur(6px); } }
+
+  /* Cards react to the mouse: a soft light follows the cursor */
+  .glare {
+    position: absolute; inset: 0; z-index: 5; pointer-events: none;
+    background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.13), rgba(168,195,255,0.05) 30%, transparent 60%);
+    mix-blend-mode: screen;
+    opacity: 0; transition: opacity 300ms ease;
+  }
+  .is-tilting .glare { opacity: 1; }
+  .tee.is-tilting, .channel.is-tilting { box-shadow: 0 22px 50px -20px rgba(168,195,255,0.28); }
+
+  /* Journey line in About */
+  .about-wrap {
+    display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 56px; align-items: center;
+  }
+  .journey { display: block; width: 100%; height: auto; overflow: visible; margin-top: 4px; grid-column: 2; grid-row: 1; }
+  .about-wrap > .about { grid-column: 1; grid-row: 1; }
+  .journey .grat { stroke: rgba(243,239,232,0.07); stroke-width: 1; stroke-dasharray: 2 5; }
+  .journey .grat-label { font-family: var(--mono); font-size: 7px; letter-spacing: 0.1em; fill: rgba(243,239,232,0.22); }
+  .journey-path {
+    fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round;
+    filter: drop-shadow(0 0 4px rgba(168,195,255,0.7));
+  }
+  .journey-head { fill: #fff; opacity: 0; filter: drop-shadow(0 0 6px #a8c3ff) drop-shadow(0 0 12px #a8c3ff); }
+  .journey-head.on { opacity: 1; }
+  .jpt { fill: var(--fg); transition: opacity 500ms ease; }
+  .jpt-ring { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .jlabel { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; fill: var(--fg); transition: opacity 600ms ease; }
+  .jsub { font-family: var(--serif); font-size: 12px; font-style: italic; fill: rgba(243,239,232,0.6); transition: opacity 600ms ease; }
+  .journey.armed .jpt:not(.lit) { opacity: 0.25; }
+  .journey.armed .jlabel:not(.lit), .journey.armed .jsub:not(.lit) { opacity: 0; }
+  .jpt.lit { filter: drop-shadow(0 0 6px rgba(168,195,255,0.9)); }
+  /* Shifting daily between Europe and Asia */
+  .strait { stroke: rgba(168,195,255,0.45); stroke-width: 1; }
+  .ferry { fill: var(--accent); opacity: 0; }
+  .motion .ferry.lit { opacity: 1; animation: ferry 2.6s ease-in-out infinite; }
+  @keyframes ferry { 0%, 100% { transform: translateX(-7px); } 50% { transform: translateX(7px); } }
+  /* Home */
+  .motion .jpt-ring.lit { animation: home-ring 2.8s ease-out infinite; }
+  @keyframes home-ring { from { opacity: 0.8; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
+
+  @media (max-width: 720px) {
+    .about-wrap { grid-template-columns: 1fr; gap: 8px; }
+    .journey, .about-wrap > .about { grid-column: auto; grid-row: auto; }
+    .journey { order: -1; width: 230px; margin: 0 auto 8px; }
+  }
+
   .about .sig {
     font-family: var(--mono); font-size: 11px; letter-spacing: 0.3em;
     text-transform: uppercase; color: var(--accent);
@@ -1447,6 +1527,37 @@
       <h2 class="section-title">a short orbit</h2>
       <p class="section-sub">— origins, chemistry, and what came next</p>
     </div>
+    <div class="about-wrap">
+    <svg class="journey" viewBox="0 0 300 370" role="img" aria-label="A path from the Danube to the Bosphorus, then north to the Nordics">
+      <g class="grat">
+        <path d="M20 60.8 H280 M20 128.8 H280 M20 196.8 H280 M20 264.8 H280 M20 332.8 H280"/>
+        <path d="M37.5 20 V350 M81.2 20 V350 M124.9 20 V350 M168.7 20 V350 M212.4 20 V350"/>
+      </g>
+      <text class="grat-label" x="282" y="58">60°N</text>
+      <text class="grat-label" x="282" y="194">50°N</text>
+      <text class="grat-label" x="282" y="330">40°N</text>
+      <text class="grat-label" x="118" y="362">20°E</text>
+      <text class="grat-label" x="206" y="362">30°E</text>
+
+      <path class="journey-path leg-1" d="M177.4 278.4 Q196 290 204.1 318.5"/>
+      <path class="journey-path leg-2" d="M204.1 318.5 C262 250 214 110 107.5 70.3"/>
+      <circle class="journey-head" r="3.6" cx="177.4" cy="278.4"/>
+
+      <circle class="jpt" data-stop="danube" cx="177.4" cy="278.4" r="3.5"/>
+      <text class="jlabel" data-stop="danube" x="166" y="276" text-anchor="end">Danube</text>
+      <text class="jsub" data-stop="danube" x="166" y="291" text-anchor="end">born</text>
+
+      <line class="strait" x1="201.6" y1="326" x2="206.6" y2="311"/>
+      <circle class="ferry" data-stop="bosphorus" cx="204.1" cy="318.5" r="2"/>
+      <circle class="jpt" data-stop="bosphorus" cx="204.1" cy="318.5" r="3.5"/>
+      <text class="jlabel" data-stop="bosphorus" x="204" y="342" text-anchor="middle">Bosphorus</text>
+      <text class="jsub" data-stop="bosphorus" x="204" y="356" text-anchor="middle">grew up, Europe ⇄ Asia</text>
+
+      <circle class="jpt-ring" data-stop="nordics" cx="107.5" cy="70.3" r="4"/>
+      <circle class="jpt" data-stop="nordics" cx="107.5" cy="70.3" r="3.5"/>
+      <text class="jlabel" data-stop="nordics" x="119" y="68">Nordics</text>
+      <text class="jsub" data-stop="nordics" x="119" y="83">home</text>
+    </svg>
     <div class="about">
       <p>
         Born in the <em>Danube bank</em>, grew up on the <em>Bosphorus</em> — shifting daily
@@ -1470,6 +1581,7 @@
         And I wear (and make) designs for the things I like.
         <span class="sig">— links are hidden above :)</span>
       </p>
+    </div>
     </div>
   </section>
 
@@ -1992,9 +2104,9 @@
   <div>tunas.me / taner &nbsp;·&nbsp; 2026</div>
 </footer>
 
-<script src="/solo-shader.js"></script>
+<script src="/solo-shader.js?v=2"></script>
 <script>
-  try { new window.SoloShader(document.getElementById('shader-canvas'), 'cool'); } catch(e) { console.error(e); }
+  try { window.soloShader = new window.SoloShader(document.getElementById('shader-canvas'), 'cool'); } catch(e) { console.error(e); }
 
   // Section-by-section scroll controller — any small wheel tick or swipe
   // glides to the next/prev section. Tall sections (code, wear) allow free
@@ -2729,5 +2841,6 @@
     });
   })();
 </script>
+<script src="/taner-motion.js?v=1"></script>
 </body>
 </html>

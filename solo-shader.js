@@ -1,6 +1,8 @@
 // Solo liquid-metal shader — one gravity well at center.
 // Used by /taner/ and /neshe/. Accepts a `tint` param:
 //  'cool' = blue/silver, 'warm' = amber/silver.
+// setMood() lets a page move the well, lean the metal toward a colour and
+// add circuit traces per section; with no mood set it renders as before.
 
 const VERT = `
 attribute vec2 a_position;
@@ -16,6 +18,10 @@ uniform float u_time;
 uniform vec2 u_mouseSmooth;
 uniform vec2 u_click;
 uniform float u_clickTime;
+uniform vec2 u_well;        // extra drift of the well (0 = centre)
+uniform vec3 u_tint;        // colour the metal leans toward...
+uniform float u_tintAmt;    // ...by this much, 0..1
+uniform float u_grid;       // circuit traces, 0..1
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -46,7 +52,7 @@ void main() {
 
   // Mouse-influenced well
   vec2 m = (u_mouseSmooth * u_resolution - 0.5 * u_resolution) / u_resolution.y;
-  vec2 well = m * 0.15;
+  vec2 well = m * 0.15 + u_well;
 
   float t = u_time * 0.22;
 
@@ -89,13 +95,14 @@ void main() {
 
   // Halo
   float glow = exp(-length(p - well) * 2.0) * 0.28;
-  col += glow * ${isCool ? 'vec3(0.55, 0.7, 1.0)' : 'vec3(1.0, 0.75, 0.55)'};
+  vec3 haloCol = mix(${isCool ? 'vec3(0.55, 0.7, 1.0)' : 'vec3(1.0, 0.75, 0.55)'}, u_tint, u_tintAmt);
+  col += glow * haloCol;
 
   col += stars(uv + vec2(u_time * 0.002, 0.0), u_time) * vec3(1.0, 0.95, 0.85) * 0.8;
   col += stars(uv * 1.3 - vec2(u_time * 0.001, 0.0), u_time) * vec3(0.85, 0.9, 1.0) * 0.5;
 
   vec3 chromeShadow = ${isCool ? 'vec3(0.05, 0.07, 0.11)' : 'vec3(0.09, 0.06, 0.05)'};
-  vec3 chromeLight  = ${isCool ? 'vec3(0.82, 0.88, 1.00)' : 'vec3(1.00, 0.88, 0.78)'};
+  vec3 chromeLight  = mix(${isCool ? 'vec3(0.82, 0.88, 1.00)' : 'vec3(1.00, 0.88, 0.78)'}, u_tint, u_tintAmt);
 
   vec3 iri = 0.5 + 0.5 * cos(6.2831 * (shape * 0.35 + t * 0.15 + vec3(0.0, 0.33, 0.67)));
   iri = mix(vec3(1.0), iri, 0.22);
@@ -104,9 +111,22 @@ void main() {
   metal += 0.2 * bands * mask;
 
   float rim = smoothstep(0.4, 0.0, abs(shape - 2.1));
-  metal += rim * ${isCool ? 'vec3(0.8, 0.9, 1.0)' : 'vec3(1.0, 0.9, 0.75)'} * 0.6;
+  metal += rim * mix(${isCool ? 'vec3(0.8, 0.9, 1.0)' : 'vec3(1.0, 0.9, 0.75)'}, u_tint, u_tintAmt) * 0.6;
 
   col += metal * mask;
+
+  // Circuit traces around the metal: per cell a horizontal or vertical
+  // trace, now and then a solder node, with a current running through.
+  if (u_grid > 0.001) {
+    vec2 q = p * 16.0;
+    vec2 f = fract(q) - 0.5;
+    float h = hash(floor(q));
+    float trace = h < 0.35 ? smoothstep(0.06, 0.0, abs(f.y)) : (h < 0.7 ? smoothstep(0.06, 0.0, abs(f.x)) : 0.0);
+    float node = h > 0.86 ? smoothstep(0.16, 0.09, length(f)) : 0.0;
+    float near = smoothstep(0.9, 2.2, shape) * (1.0 - mask * 0.7);
+    float current = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(q.x * 0.6 + q.y * 0.45 - u_time * 2.2), 3.0);
+    col += u_grid * near * (trace * 0.32 * current + node * 0.45) * haloCol;
+  }
 
   float grain = (hash(gl_FragCoord.xy + u_time) - 0.5) * 0.015;
   col += grain;
@@ -154,7 +174,13 @@ class SoloShader {
       mouseSmooth: gl.getUniformLocation(p, 'u_mouseSmooth'),
       click: gl.getUniformLocation(p, 'u_click'),
       clickTime: gl.getUniformLocation(p, 'u_clickTime'),
+      well: gl.getUniformLocation(p, 'u_well'),
+      tint: gl.getUniformLocation(p, 'u_tint'),
+      tintAmt: gl.getUniformLocation(p, 'u_tintAmt'),
+      grid: gl.getUniformLocation(p, 'u_grid'),
     };
+    this.mood = { well: [0, 0], tint: [0, 0, 0], tintAmt: 0, grid: 0 };
+    this.moodNow = { well: [0, 0], tint: [0, 0, 0], tintAmt: 0, grid: 0 };
 
     this.mouse = [0.5, 0.5];
     this.mouseSmooth = [0.5, 0.5];
@@ -178,6 +204,18 @@ class SoloShader {
     this.loop();
   }
 
+  setMouse(nx, ny) { this.mouse = [nx, ny]; }
+  setMood(m) {
+    if (m.well) this.mood.well = m.well.slice();
+    if (m.tint) this.mood.tint = m.tint.slice();
+    if (m.tintAmt !== undefined) this.mood.tintAmt = m.tintAmt;
+    if (m.grid !== undefined) this.mood.grid = m.grid;
+  }
+  pulse(nx, ny) {
+    this.click = [nx, ny];
+    this.clickTime = (performance.now() - this.start) / 1000;
+  }
+
   resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = this.canvas.clientWidth * dpr;
@@ -194,6 +232,12 @@ class SoloShader {
     const t = (performance.now() - this.start) / 1000;
     this.mouseSmooth[0] += (this.mouse[0] - this.mouseSmooth[0]) * 0.07;
     this.mouseSmooth[1] += (this.mouse[1] - this.mouseSmooth[1]) * 0.07;
+    // Moods glide over about a second
+    const k = 0.035, a = this.mood, b = this.moodNow;
+    for (let i = 0; i < 2; i++) b.well[i] += (a.well[i] - b.well[i]) * k;
+    for (let i = 0; i < 3; i++) b.tint[i] += (a.tint[i] - b.tint[i]) * k;
+    b.tintAmt += (a.tintAmt - b.tintAmt) * k;
+    b.grid += (a.grid - b.grid) * k;
 
     gl.useProgram(this.program);
     gl.uniform2f(this.u.resolution, this.canvas.width, this.canvas.height);
@@ -201,6 +245,10 @@ class SoloShader {
     gl.uniform2f(this.u.mouseSmooth, this.mouseSmooth[0], this.mouseSmooth[1]);
     gl.uniform2f(this.u.click, this.click[0], this.click[1]);
     gl.uniform1f(this.u.clickTime, this.clickTime);
+    gl.uniform2f(this.u.well, b.well[0], b.well[1]);
+    gl.uniform3f(this.u.tint, b.tint[0], b.tint[1], b.tint[2]);
+    gl.uniform1f(this.u.tintAmt, b.tintAmt);
+    gl.uniform1f(this.u.grid, b.grid);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     requestAnimationFrame(() => this.loop());
   }
