@@ -38,701 +38,564 @@
   ]
 }
 </script>
+<script>
+  // Motion only for visitors who haven't asked to reduce it; the arrival
+  // sequence only for visitors coming from outside the site (not on the way
+  // back from a profile page).
+  (function () {
+    var r = document.documentElement;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    r.classList.add('motion');
+    var own = false;
+    try { own = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) {}
+    if (!own) r.classList.add('intro');
+  })();
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg: #05060a;
     --fg: #f3efe8;
-    --fg-dim: rgba(243, 239, 232, 0.55);
-    --fg-faint: rgba(243, 239, 232, 0.18);
+    --fg-2: rgba(243, 239, 232, 0.76);
+    --fg-3: rgba(243, 239, 232, 0.6);
+    --line: rgba(243, 239, 232, 0.16);
+    --hand: 'Caveat', cursive;
     --mono: 'JetBrains Mono', ui-monospace, monospace;
     --serif: 'Instrument Serif', 'Times New Roman', serif;
     --cool: #a8c3ff;
     --warm: #ffc49a;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    --orbit: clamp(180px, calc(100vh - 630px), 290px);
+    --top: 196px;     /* where the two sides start, under the heading */
+    --bottom: 112px;  /* room for the footer */
   }
 
   * { box-sizing: border-box; }
-  html, body { margin:0; min-height:100%; background:var(--bg); color:var(--fg);
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg);
     font-family: var(--mono); font-size: 13px; -webkit-font-smoothing: antialiased; }
-  body { overflow-x: hidden; overflow-y: auto; }
+  body { overflow: hidden; }
+  a { color: inherit; text-decoration: none; }
+  h1, h2, p { margin: 0; }
 
-  #shader-canvas {
-    position: fixed; inset: 0;
-    width: 100%; height: 100%;
-    z-index: 0;
+  #shader-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.9; }
+
+  /* The field stays alive but steps back behind the words. */
+  .scrim {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      radial-gradient(ellipse 30% 30% at 25% 72%, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0) 100%),
+      radial-gradient(ellipse 30% 30% at 75% 72%, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0) 100%),
+      radial-gradient(ellipse 40% 22% at 50% 13%, rgba(5, 6, 10, 0.7), rgba(5, 6, 10, 0) 100%),
+      linear-gradient(to bottom, rgba(5, 6, 10, 0.55), rgba(5, 6, 10, 0) 18%, rgba(5, 6, 10, 0) 80%, rgba(5, 6, 10, 0.8));
   }
 
-  .stage { position: fixed; inset: 0; z-index: 1; }
+  .corner { position: fixed; width: 18px; height: 18px; z-index: 6; pointer-events: none;
+    border: 0 solid rgba(243, 239, 232, 0.22); }
+  .corner.tl { top: 16px; left: 16px; border-top-width: 1px; border-left-width: 1px; }
+  .corner.tr { top: 16px; right: 16px; border-top-width: 1px; border-right-width: 1px; }
+  .corner.bl { bottom: 16px; left: 16px; border-bottom-width: 1px; border-left-width: 1px; }
+  .corner.br { bottom: 16px; right: 16px; border-bottom-width: 1px; border-right-width: 1px; }
 
+  /* ---------- Header ---------- */
   .top {
-    position: fixed; top: 0; left: 0; right: 0;
-    padding: 24px 32px;
-    display: flex; justify-content: space-between; align-items: flex-start;
-    z-index: 20; pointer-events: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    padding: 28px 44px;
+    display: flex; justify-content: space-between; align-items: center; gap: 24px;
   }
-  .brand {
-    display: flex; align-items: baseline; gap: 12px;
-    pointer-events: auto;
-  }
-  .brand-mark {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--fg);
-    box-shadow: 0 0 14px rgba(243, 239, 232, 0.6);
-    transform: translateY(-1px);
-  }
-  .brand-name {
-    font-family: var(--serif); font-size: 22px;
-    letter-spacing: 0.01em;
-  }
-  .brand-meta {
-    color: var(--fg-dim); font-size: 10px;
-    text-transform: uppercase; letter-spacing: 0.2em;
-  }
+  .brand { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+  .brand-name { font-family: var(--serif); font-size: 26px; line-height: 1; letter-spacing: 0.01em; }
+  .brand-mark { flex: none; }
+  .brand-mark g { transform-origin: 11px 11px; }
+  .motion .brand-mark g { animation: spin 14s linear infinite; }
+  .nav { display: flex; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; }
+  .nav a { padding: 12px 14px; color: var(--fg-2); transition: color 200ms ease; }
+  .nav a:hover, .nav a:focus-visible { color: #fff; }
 
-  .top-right {
-    text-align: right; font-size: 10px;
-    text-transform: uppercase; letter-spacing: 0.2em;
-    color: var(--fg-dim); line-height: 1.8;
+  .heading {
+    position: fixed; top: 96px; left: 0; right: 0; z-index: 4;
+    text-align: center; pointer-events: none;
   }
-  .top-right .val { color: var(--fg); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.28em;
+    text-transform: uppercase; color: var(--fg-3);
+  }
+  .heading h1 {
+    margin-top: 10px;
+    font-family: var(--serif); font-weight: 400; font-size: 38px; line-height: 1.1; letter-spacing: -0.005em;
+  }
+  .heading h1 em { color: rgba(243, 239, 232, 0.7); }
 
+  /* ---------- The two sides ---------- */
   .composition {
-    position: fixed; inset: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    z-index: 5;
+    position: fixed; inset: 0; z-index: 5;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
   .half {
     position: relative;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 24px;
+    padding: var(--top) 24px var(--bottom);
     cursor: pointer;
-    color: inherit;
-    text-decoration: none;
-    -webkit-text-decoration: none;
-    transition: transform 700ms cubic-bezier(.2,.8,.2,1);
+    transition: opacity 600ms ease, filter 600ms ease;
   }
-  .half.L { padding-right: 2%; }
-  .half.R { padding-left: 2%; }
+  .half.is-dimmed { opacity: 0.46; filter: saturate(0.35); }
+  .half:focus-visible { outline: none; }
+  .half:focus-visible .enter { outline: 2px solid #fff; outline-offset: 3px; }
 
-  .orbit {
-    position: relative;
-    width: min(32vw, 340px);
-    aspect-ratio: 1;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .orbit::before,
-  .orbit::after {
-    content: '';
-    position: absolute; inset: 0;
-    border-radius: 50%;
-    border: 1px solid var(--fg-faint);
-    pointer-events: none;
-  }
-  .orbit::before { transform: scale(1.08); border-color: rgba(243,239,232, 0.12); }
-  .orbit::after  { transform: scale(1.22); border-color: rgba(243,239,232, 0.06); }
+  .orbit-wrap { will-change: translate; }
+  .orbit { position: relative; width: var(--orbit); height: var(--orbit); }
+  .rings { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .ring { fill: none; stroke-width: 1; vector-effect: non-scaling-stroke; transition: stroke-opacity 600ms ease; }
+  .ring.inner { stroke-opacity: 0.42; }
+  .ring.outer { stroke-opacity: 0.18; }
+  .half.L .ring { stroke: var(--cool); }
+  .half.R .ring { stroke: var(--warm); }
+  .rings .ticks line { stroke: rgba(243, 239, 232, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
 
-  .half.L .orbit::before { border-color: rgba(168, 195, 255, 0.22); }
-  .half.L .orbit::after  { border-color: rgba(168, 195, 255, 0.08); }
-  .half.R .orbit::before { border-color: rgba(255, 196, 154, 0.22); }
-  .half.R .orbit::after  { border-color: rgba(255, 196, 154, 0.08); }
-
-  .orbit .tick {
-    position: absolute; width: 6px; height: 1px;
-    background: var(--fg-dim);
-    top: 50%; left: -3px;
-    animation: spin 22s linear infinite;
-    transform-origin: calc(50% + 3px) 50%;
+  .sat { position: absolute; inset: 0; pointer-events: none; }
+  .motion .sat { animation: spin 24s linear infinite; }
+  .motion .half.R .sat { animation-direction: reverse; animation-duration: 30s; }
+  .sat::before {
+    content: ''; position: absolute; left: 50%; top: 0.4%;
+    width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
   }
-  .half.R .orbit .tick { animation-direction: reverse; animation-duration: 28s; }
+  .half.L .sat::before { background: #dfe8ff; box-shadow: 0 0 10px 2px rgba(168, 195, 255, 0.8); }
+  .half.R .sat::before { background: #fff0e2; box-shadow: 0 0 10px 2px rgba(255, 196, 154, 0.8); }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .portrait-glow {
+    position: absolute; inset: -14%; border-radius: 50%;
+    filter: blur(24px); opacity: 0; transition: opacity 700ms ease; pointer-events: none;
+  }
+  .half.L .portrait-glow { background: radial-gradient(circle, rgba(168, 195, 255, 0.42), rgba(168, 195, 255, 0) 62%); }
+  .half.R .portrait-glow { background: radial-gradient(circle, rgba(255, 196, 154, 0.42), rgba(255, 196, 154, 0) 62%); }
+
   .portrait {
-    position: relative;
-    width: 72%; aspect-ratio: 1;
-    border-radius: 50%;
-    overflow: hidden;
-    background: #0a0a12;
-    box-shadow:
-      0 0 0 1px rgba(243, 239, 232, 0.12),
-      0 0 80px rgba(0, 0, 0, 0.6),
-      inset 0 0 60px rgba(0, 0, 0, 0.8);
-    transition: transform 700ms cubic-bezier(.2,.8,.2,1), box-shadow 700ms ease;
-    z-index: 2;
+    position: absolute; inset: 10.7%;
+    border-radius: 50%; overflow: hidden; background: #0a0a12;
+    box-shadow: 0 0 0 1px rgba(243, 239, 232, 0.16), 0 30px 80px rgba(0, 0, 0, 0.55);
+    transition: transform 700ms var(--ease), box-shadow 700ms ease;
   }
   .portrait img {
-    width: 100%; height: 100%; object-fit: cover;
-    filter: contrast(1.05) saturate(0.92) brightness(0.92);
-    transition: filter 700ms ease, transform 12s linear;
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    filter: contrast(1.03) saturate(0.94);
+    transition: transform 900ms var(--ease), filter 700ms ease;
   }
-  /* Neshe's source photo frames wider than Taner's; zoom to bring the
-     face forward without changing the orbit size. */
-  .half.R .portrait img { transform: scale(1.2); }
+  /* Neshe's photo frames wider than Taner's; zoom to bring the face forward. */
+  .half.R .portrait img { transform: scale(1.18); }
 
-  .portrait.placeholder {
-    background:
-      radial-gradient(circle at 30% 25%, rgba(255, 180, 140, 0.35), transparent 55%),
-      radial-gradient(circle at 70% 75%, rgba(255, 100, 130, 0.25), transparent 55%),
-      radial-gradient(circle at 50% 50%, rgba(80, 40, 60, 0.8), #0a0a12 70%);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .portrait.placeholder::after {
-    content: 'NESHE';
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.5em;
-    color: rgba(255, 220, 200, 0.5);
-    text-transform: uppercase;
-    padding-left: 0.5em;
-  }
-  .portrait.placeholder::before {
-    content: 'PORTRAIT PENDING';
-    position: absolute; bottom: 18%;
-    font-family: var(--mono);
-    font-size: 8px;
-    letter-spacing: 0.3em;
-    color: rgba(255, 220, 200, 0.3);
-    text-transform: uppercase;
-  }
-
-  .portrait-glow {
-    position: absolute;
-    width: 120%; height: 120%;
-    border-radius: 50%;
-    filter: blur(40px);
-    opacity: 0;
-    transition: opacity 600ms ease;
-    z-index: 0;
-  }
-  .half.L .portrait-glow { background: radial-gradient(circle, rgba(168, 195, 255, 0.55), transparent 60%); }
-  .half.R .portrait-glow { background: radial-gradient(circle, rgba(255, 196, 154, 0.55), transparent 60%); }
-
-  .half:hover .portrait-glow,
   .half.is-focused .portrait-glow { opacity: 1; }
-  .half:hover .portrait,
-  .half.is-focused .portrait { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(243,239,232,0.2), 0 0 120px rgba(0,0,0,0.8); }
-  .half:hover .portrait img,
-  .half.is-focused .portrait img { filter: contrast(1.1) saturate(1.05) brightness(1); transform: scale(1.06); }
-  .half.R:hover .portrait img,
-  .half.R.is-focused .portrait img { transform: scale(1.27); }
+  .half.is-focused .portrait { transform: scale(1.05); }
+  .half.is-focused .portrait img { filter: contrast(1.06) saturate(1.06) brightness(1.04); }
+  .half.is-focused .ring { stroke-opacity: 1; }
 
-  .name-block {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 14px; z-index: 3; position: relative;
-    padding: 24px 32px;
-    border-radius: 24px;
-    background: radial-gradient(ellipse at center, rgba(5, 6, 10, 0.55) 0%, rgba(5, 6, 10, 0.25) 60%, transparent 100%);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+  .meta { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .side-label {
+    margin-top: 22px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase;
   }
-  .name-eyebrow {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.35em;
-    color: rgba(243, 239, 232, 0.75);
-    text-shadow: 0 0 8px rgba(0, 0, 0, 1), 0 1px 3px rgba(0, 0, 0, 1);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .name-eyebrow::before,
-  .name-eyebrow::after {
-    content: '';
-    width: 16px; height: 1px;
-    background: var(--fg-faint);
-  }
+  .half.L .side-label { color: rgba(168, 195, 255, 0.88); }
+  .half.R .side-label { color: rgba(255, 196, 154, 0.88); }
   .name {
-    font-family: 'Caveat', cursive;
-    font-size: clamp(56px, 6.5vw, 104px);
-    line-height: 0.95;
-    letter-spacing: -0.01em;
-    margin: 0;
-    font-weight: 500;
-    font-style: normal;
-    white-space: nowrap;
-    text-decoration: none;
-    text-shadow:
-      0 0 18px rgba(0, 0, 0, 0.9),
-      0 0 40px rgba(0, 0, 0, 0.7),
-      0 2px 4px rgba(0, 0, 0, 1);
-  }
-  .half.L .name { color: #e8efff; }
-  .half.R .name { color: #ffecd8; }
-
-  .role {
-    font-family: var(--mono);
-    font-size: 10px;
-    text-transform: none;
-    letter-spacing: 0.04em;
-    line-height: 1.55;
-    color: rgba(243, 239, 232, 0.75);
-    text-align: center;
-    max-width: 320px;
-    background: transparent;
-    text-shadow:
-      0 0 8px rgba(0, 0, 0, 1),
-      0 0 16px rgba(0, 0, 0, 0.85),
-      0 1px 3px rgba(0, 0, 0, 1);
-    font-weight: 500;
-    text-wrap: pretty;
-  }
-
-  .enter {
     margin-top: 6px;
-    display: flex; align-items: center; gap: 10px;
-    font-family: var(--mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.25em;
-    color: var(--fg-dim);
-    border: 1px solid var(--fg-faint);
-    padding: 10px 16px 10px 18px;
-    border-radius: 999px;
-    transition: color 300ms ease, border-color 300ms ease, background 300ms ease, transform 300ms ease;
-    background: rgba(5, 6, 10, 0.3);
-    backdrop-filter: blur(6px);
+    font-family: var(--hand); font-weight: 500; font-size: clamp(56px, 6.5vw, 100px); line-height: 0.95; letter-spacing: -0.01em;
+    white-space: nowrap;
+    text-shadow: 0 0 18px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 0, 0, 0.7), 0 2px 4px rgba(0, 0, 0, 1);
   }
-  .enter svg { width: 12px; height: 12px; transition: transform 300ms ease; }
-  .half:hover .enter,
-  .half.is-focused .enter {
-    color: var(--fg);
-    border-color: rgba(243, 239, 232, 0.4);
-    background: rgba(243, 239, 232, 0.05);
+  .half.L .name { color: #eef3ff; }
+  .half.R .name { color: #fff1e4; }
+  .role {
+    margin-top: 12px; max-width: 360px;
+    font-size: 13px; line-height: 1.6; letter-spacing: 0.02em; color: var(--fg-2); text-wrap: balance;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 1), 0 1px 3px rgba(0, 0, 0, 1);
   }
-  .half:hover .enter svg,
-  .half.is-focused .enter svg { transform: translateX(4px); }
-  .half.L:hover .enter,
-  .half.L.is-focused .enter { border-color: rgba(168, 195, 255, 0.5); }
-  .half.R:hover .enter,
-  .half.R.is-focused .enter { border-color: rgba(255, 196, 154, 0.5); }
+  .tags { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: rgba(243, 239, 232, 0.7); }
+  .tags span { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
+  .enter {
+    margin-top: 22px;
+    display: inline-flex; align-items: center; gap: 10px;
+    min-height: 48px; padding: 0 22px 0 24px;
+    border-radius: 999px; border: 1px solid rgba(243, 239, 232, 0.26); background: rgba(5, 6, 10, 0.35);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--fg);
+    transition: background 300ms ease, border-color 300ms ease, color 300ms ease;
+  }
+  .enter svg { width: 14px; height: 14px; transition: transform 300ms ease; }
+  .half.is-focused .enter svg, .half:focus-visible .enter svg { transform: translateX(4px); }
+  .half.L.is-focused .enter, .half.L:focus-visible .enter { background: rgba(168, 195, 255, 0.14); border-color: rgba(168, 195, 255, 0.7); color: #fff; }
+  .half.R.is-focused .enter, .half.R:focus-visible .enter { background: rgba(255, 196, 154, 0.14); border-color: rgba(255, 196, 154, 0.7); color: #fff; }
 
   .divider {
-    position: fixed; left: 50%; top: 0; bottom: 0;
-    width: 1px; z-index: 6;
-    background: linear-gradient(to bottom, transparent, var(--fg-faint) 15%, var(--fg-faint) 85%, transparent);
-    pointer-events: none;
-    transform: translateX(-0.5px);
+    position: fixed; left: 50%; top: var(--top); bottom: var(--bottom); width: 1px; z-index: 6;
+    transform: translateX(-0.5px); pointer-events: none;
+    background: linear-gradient(to bottom, rgba(243, 239, 232, 0), rgba(243, 239, 232, 0.2) 18%, rgba(243, 239, 232, 0.2) 82%, rgba(243, 239, 232, 0));
   }
-  .divider-label {
-    position: fixed;
-    left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 7; pointer-events: none;
-    display: flex; flex-direction: column; align-items: center;
-    gap: 8px;
-  }
-  .divider-label .or {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 18px;
-    color: var(--fg-dim);
-    background: var(--bg);
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--fg-faint);
-  }
-  .divider-label .tag {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.3em;
-    color: var(--fg-faint);
+  .divider-or {
+    position: fixed; left: 50%; top: calc((var(--top) + 100vh - var(--bottom)) / 2); z-index: 7;
+    transform: translate(-50%, -50%); pointer-events: none;
+    width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(243, 239, 232, 0.2); background: var(--bg);
+    font-family: var(--serif); font-style: italic; font-size: 19px; color: rgba(243, 239, 232, 0.72);
   }
 
+  /* ---------- Footer ---------- */
   .bottom {
-    position: fixed;
-    bottom: 24px;
-    left: 32px; right: 32px;
-    z-index: 20;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    position: fixed; left: 44px; right: 44px; bottom: 28px; z-index: 20;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 24px;
     pointer-events: none;
-    gap: 32px;
   }
-  .caption {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.25em;
-    color: var(--fg-dim);
-    max-width: 420px;
-    line-height: 1.9;
+  .copy { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: rgba(243, 239, 232, 0.56); }
+  .hint { display: flex; justify-content: center; align-items: center; gap: 10px;
+    font-size: 11px; letter-spacing: 0.04em; color: rgba(243, 239, 232, 0.68); white-space: nowrap; }
+  .hint svg { flex: none; }
+  .hud-wrap { display: flex; justify-content: flex-end; }
+  .hud {
+    display: inline-flex; align-items: center; gap: 14px;
+    padding: 9px 16px; border-radius: 999px;
+    border: 1px solid rgba(243, 239, 232, 0.14); background: rgba(5, 6, 10, 0.55);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--fg-3);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
   }
-  .coords {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--fg-dim);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.8;
-  }
-  .coords .v { color: var(--fg); }
+  .hud[hidden] { display: none; }
+  .hud .v { color: var(--fg); }
+  .hud .sep { width: 1px; height: 12px; background: rgba(243, 239, 232, 0.2); }
 
-  /* Comet slingshot (comet-slingshot.js) */
-  #comet-canvas {
-    position: fixed; inset: 0;
-    width: 100%; height: 100%;
-    z-index: 8; pointer-events: none;
-  }
-  .composition, .divider-label { -webkit-user-select: none; user-select: none; }
+  /* ---------- Comet slingshot (comet-slingshot.js) ---------- */
+  #comet-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 8; pointer-events: none; }
+  .composition, .heading, .divider-or { -webkit-user-select: none; user-select: none; }
   .comet-aiming, .comet-aiming * { cursor: grabbing !important; }
-  .half.comet-hit .portrait-glow {
-    opacity: 1;
-    animation: comet-glow 900ms ease-out;
-  }
-  @keyframes comet-glow {
-    from { transform: scale(0.8); }
-    40%  { transform: scale(1.18); }
-    to   { transform: scale(1); }
-  }
+  .half.comet-hit .portrait-glow { opacity: 1; animation: comet-glow 900ms ease-out; }
+  @keyframes comet-glow { from { transform: scale(0.8); } 40% { transform: scale(1.18); } to { transform: scale(1); } }
   .comet-note {
-    position: fixed;
-    left: 50%; top: calc(50% + 72px);
-    transform: translate(-50%, 6px);
-    z-index: 21; pointer-events: none;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.3em;
-    color: var(--fg);
-    background: rgba(5, 6, 10, 0.55);
-    border: 1px solid var(--fg-faint);
-    padding: 7px 14px 7px 17px;
-    border-radius: 999px;
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 400ms ease, transform 400ms ease;
+    position: fixed; left: 50%; top: calc((var(--top) + 100vh - var(--bottom)) / 2 + 64px);
+    transform: translate(-50%, 6px); z-index: 21; pointer-events: none;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--fg);
+    background: rgba(5, 6, 10, 0.7); border: 1px solid rgba(243, 239, 232, 0.18);
+    padding: 8px 14px; border-radius: 999px; white-space: nowrap;
+    opacity: 0; transition: opacity 400ms ease, transform 400ms ease;
   }
   .comet-note.show { opacity: 1; transform: translate(-50%, 0); }
 
-  .corner {
-    position: fixed; width: 20px; height: 20px;
-    z-index: 6; pointer-events: none;
-  }
-  .corner::before, .corner::after { content: ''; position: absolute; background: var(--fg-faint); }
-  .corner::before { width: 100%; height: 1px; top: 0; }
-  .corner::after { width: 1px; height: 100%; left: 0; top: 0; }
-  .corner.tl { top: 16px; left: 16px; }
-  .corner.tr { top: 16px; right: 16px; transform: scaleX(-1); }
-  .corner.bl { bottom: 16px; left: 16px; transform: scaleY(-1); }
-  .corner.br { bottom: 16px; right: 16px; transform: scale(-1, -1); }
+  /* ---------- Leaving for a profile ---------- */
+  .veil { position: fixed; inset: 0; z-index: 50; background: var(--bg); opacity: 0; pointer-events: none; }
+  .leaving .veil { opacity: 1; transition: opacity 380ms ease 100ms; }
+  .leaving .half.is-entering .portrait { transform: scale(1.45); transition: transform 480ms cubic-bezier(.7, 0, .3, 1); }
+  .leaving .half:not(.is-entering) { opacity: 0; transition: opacity 250ms ease; }
 
+  /* ---------- Arrival (once, for visitors from outside) ---------- */
+  .intro #shader-canvas { animation: fade-in 1600ms ease-out backwards; }
+  .intro .ring { stroke-dasharray: 1; animation: draw 1500ms cubic-bezier(.6, 0, .2, 1) 250ms backwards; }
+  .intro .ring.outer { animation-delay: 450ms; }
+  .intro .portrait { animation: focus-in 1300ms var(--ease) 200ms backwards; }
+  .intro .heading { animation: rise 900ms var(--ease) 150ms backwards; }
+  .intro .side-label { animation: rise 900ms var(--ease) 650ms backwards; }
+  .intro .name { animation: rise 900ms var(--ease) 800ms backwards; }
+  .intro .role, .intro .tags { animation: rise 900ms var(--ease) 950ms backwards; }
+  .intro .enter { animation: rise 900ms var(--ease) 1100ms backwards; }
+  .intro .top, .intro .bottom, .intro .divider, .intro .divider-or { animation: fade-in 900ms ease 1300ms backwards; }
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes draw { from { stroke-dashoffset: 1; } }
+  @keyframes focus-in { from { transform: scale(0.9); filter: blur(10px); opacity: 0; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+
+  /* ---------- Shorter screens ---------- */
+  @media (max-height: 820px) and (min-width: 721px) {
+    :root { --top: 168px; --bottom: 96px; --orbit: clamp(170px, calc(100vh - 510px), 290px); }
+    .heading { top: 84px; }
+    .heading h1 { font-size: 32px; }
+    .name { font-size: 70px; }
+    .tags { display: none; }
+    .top { padding: 20px 40px; }
+    .bottom { bottom: 22px; }
+  }
+  @media (max-width: 1100px) and (min-width: 721px) {
+    .hint span { display: none; }
+    .name { font-size: 68px; }
+  }
+
+  /* ---------- Phones: one screen, no scrolling. Neshe upper right, Taner lower
+     left, each beside their words, joined by a line through the "or". ---------- */
+  .axis { display: none; }
+  .copy-names { white-space: nowrap; }
   @media (max-width: 720px) {
-    html, body { height: auto; overflow-y: auto; overflow-x: hidden; }
-    #shader-canvas { position: fixed; inset: 0; height: 100vh; touch-action: none; }
-    .comet-note { top: 50%; }
-    /* Diagonal split: Neshe in upper-right corner, Taner in lower-left,
-       separated by a thin line running from upper-left to lower-right.
-       The composition itself lets pointer events pass through so taps on
-       empty space reach the shockwave shader behind it; the orbit and
-       name children below re-enable pointer events for navigation. */
-    .composition {
-      position: relative;
-      inset: auto;
-      display: block;
-      min-height: 100vh;
-      padding: 0;
-      transform: none !important;
-      pointer-events: none;
-    }
-    .composition::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg,
-        transparent calc(50% - 0.6px),
-        rgba(243, 239, 232, 0.22) 50%,
-        transparent calc(50% + 0.6px));
-      pointer-events: none;
-    }
-    .half {
-      position: absolute;
-      width: auto;
-      min-height: auto;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-    .half.L {
-      bottom: 8vh;
-      left: 6vw;
-      align-items: flex-start;
-    }
-    .half.R {
-      top: 8vh;
-      right: 6vw;
-      align-items: flex-end;
-    }
-    .divider, .divider-label { display: none; }
-    .orbit { width: min(63vw, 270px); }
-    /* Spin the orbit rings on mobile — cool silver around Taner (lower
-       corner), warm silver around Neshe (upper corner). Dashed borders
-       make the rotation visible. Scale is folded into the keyframes so
-       the original ring sizes (1.08x / 1.22x) are preserved. */
-    .half.L .orbit::before {
-      border: 1px dashed rgba(168, 195, 255, 0.45);
-      animation: spin-ring-1 18s linear infinite;
-    }
-    .half.L .orbit::after {
-      border: 1px dashed rgba(168, 195, 255, 0.22);
-      animation: spin-ring-2 28s linear infinite reverse;
-    }
-    .half.R .orbit::before {
-      border: 1px dashed rgba(255, 196, 154, 0.45);
-      animation: spin-ring-1 18s linear infinite reverse;
-    }
-    .half.R .orbit::after {
-      border: 1px dashed rgba(255, 196, 154, 0.22);
-      animation: spin-ring-2 28s linear infinite;
-    }
-    @keyframes spin-ring-1 { to { transform: scale(1.08) rotate(360deg); } }
-    @keyframes spin-ring-2 { to { transform: scale(1.22) rotate(360deg); } }
-    .name { font-size: 38px; margin: 4px 0 0; }
-    /* On mobile we want a compact two-portrait stack — hide the eyebrow
-       label, role description, and "Enter orbit" CTA so both halves fit
-       in one viewport. */
-    .name-eyebrow, .role, .enter { display: none; }
-    .name-block { padding: 0; text-align: center; }
-    .half.L .name-block { text-align: left; }
-    .half.R .name-block { text-align: right; }
-    .top { padding: 14px 16px; position: absolute; }
-    .top-right { font-size: 9px; letter-spacing: 0.15em; }
-    .brand-meta { display: none; }
-    .bottom {
-      position: relative;
-      left: auto; right: auto; bottom: auto;
-      padding: 0 20px 24px;
-      flex-direction: column;
-      gap: 12px;
-      align-items: flex-start;
-    }
-    .caption { display: none; }
-    .coords { text-align: left; }
-    .corner { display: none; }
+    :root { --orbit: clamp(104px, min(36vw, calc(100svh - 530px)), 150px); }
+    html, body { height: 100%; overflow: hidden; }
+    #shader-canvas { touch-action: none; opacity: 0.75; }
+    .scrim { background:
+      radial-gradient(ellipse 70% 22% at 30% 42%, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0) 100%),
+      radial-gradient(ellipse 70% 22% at 70% 68%, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0) 100%),
+      linear-gradient(to bottom, rgba(5, 6, 10, 0.7), rgba(5, 6, 10, 0) 22%, rgba(5, 6, 10, 0) 84%, rgba(5, 6, 10, 0.85)); }
+    .corner, .divider, .nav, .hint, .copy-names { display: none; }
+    .top { padding: 12px 20px; }
+    .brand-name { font-size: 23px; }
+    .heading { top: 72px; left: 24px; right: 24px; text-align: left; }
+    .heading .eyebrow { font-size: 10px; letter-spacing: 0.26em; }
+    /* Phones show only the small line; the heading stays for screen readers and search. */
+    .heading h1 { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-    /* Shrink the tap target on mobile to just the portrait circle and
-       the name — the surrounding orbit rings stay click-through so taps
-       there reach the shader behind and trigger the shockwave effect.
-       The portrait itself is clipped to a circle so only the visible
-       disc captures pointer events, leaving the corners around it free
-       for the wave too. */
-    .composition .half { pointer-events: none; }
-    .composition .half .orbit { pointer-events: none; }
-    .composition .half .portrait,
-    .composition .half .name {
-      pointer-events: auto;
-      cursor: pointer;
+    .composition {
+      display: flex; flex-direction: column; justify-content: center;
+      gap: clamp(58px, calc(100svh - 600px), 72px);
+      padding: 108px 20px 60px;
+      pointer-events: none;
     }
-    .composition .half .portrait {
-      clip-path: circle(50% at 50% 50%);
+    .half { padding: 0; display: flex; align-items: center; gap: 14px; width: 100%; pointer-events: none; }
+    .half.R { order: 1; flex-direction: row-reverse; }
+    .half.L { order: 2; flex-direction: row; }
+    .orbit-wrap { flex: none; }
+    .meta { flex: 1 1 auto; min-width: 0; }
+    .half.R .meta { align-items: flex-end; text-align: right; }
+    .half.L .meta { align-items: flex-start; text-align: left; }
+    .half .portrait, .half .meta { pointer-events: auto; }
+    .half .portrait { clip-path: circle(50% at 50% 50%); }
+    .side-label { margin-top: 0; font-size: 10px; letter-spacing: 0.22em; }
+    .name { margin-top: 2px; font-size: 48px; }
+    .half.R .name { padding-right: 6px; } /* Caveat's last letter leans past its box */
+    .role { margin-top: 4px; max-width: 100%; font-size: 12px; line-height: 1.45; }
+    .role .long, .tags { display: none; }
+    .enter { display: none; } /* the portrait and the name are the way in */
+    .half.is-dimmed { opacity: 0.7; }
+
+    .axis { display: block; position: fixed; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
+    .axis line { stroke: rgba(243, 239, 232, 0.26); stroke-width: 1; }
+    .divider-or { width: 40px; height: 40px; font-size: 17px; z-index: 6; }
+
+    .bottom {
+      left: 20px; right: 20px; bottom: 18px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
     }
+    .copy { order: 2; font-size: 10px; }
+    .hud-wrap { order: 1; justify-content: flex-start; }
+    .hud { padding: 7px 12px; font-size: 10px; gap: 10px; }
+    .comet-note { top: 100px; left: 24px; transform: translateY(6px); }
+    .comet-note.show { transform: none; }
   }
+  /* The shortest phones keep names and buttons, not the role lines. */
+  @media (max-width: 720px) and (max-height: 480px) { .role { display: none; } }
+  @media (max-width: 720px) { .role .short { display: inline; } }
+  @media (min-width: 721px) { .role .short { display: none; } }
 </style>
 </head>
 <body>
 
-<canvas id="shader-canvas"></canvas>
+<canvas id="shader-canvas" aria-hidden="true"></canvas>
+<div class="scrim" aria-hidden="true"></div>
 
-<div class="top">
-  <div class="brand">
-    <span class="brand-mark"></span>
+<header class="top">
+  <a class="brand" href="/" aria-label="tunas.me home">
+    <svg class="brand-mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="rgba(243,239,232,0.28)" stroke-width="1"></circle><g><circle cx="3" cy="11" r="2.4" fill="#a8c3ff"></circle><circle cx="19" cy="11" r="2.4" fill="#ffc49a"></circle></g></svg>
     <span class="brand-name">tunas.me</span>
-    <span class="brand-meta">—&nbsp; the family, in orbit</span>
-  </div>
-  <div class="top-right">
-    <div>est. <span class="val">2026</span></div>
-    <div>vol. <span class="val">001</span></div>
-  </div>
-</div>
+  </a>
+  <nav class="nav" aria-label="Pages">
+    <a href="/taner/">Taner</a>
+    <a href="/neshe/">Neshe</a>
+  </nav>
+</header>
 
 <div class="corner tl"></div>
 <div class="corner tr"></div>
 <div class="corner bl"></div>
 <div class="corner br"></div>
 
+<div class="heading">
+  <div class="eyebrow">Personal pages · est. 2026</div>
+  <h1>Taner <em>&amp;</em> Neshe Tuna</h1>
+</div>
+
 <div class="composition">
+
   <a class="half L" href="/taner/" data-side="L" aria-label="Enter Taner's page">
-    <div class="orbit">
-      <div class="portrait-glow"></div>
-      <div class="portrait">
-        <img src="assets/taner.png" alt="Taner">
+    <div class="orbit-wrap">
+      <div class="orbit">
+        <div class="portrait-glow"></div>
+        <svg class="rings" viewBox="0 0 280 280" aria-hidden="true">
+          <circle class="ring inner" pathLength="1" cx="140" cy="140" r="124"></circle>
+          <circle class="ring outer" pathLength="1" cx="140" cy="140" r="139"></circle>
+          <g class="ticks"><line x1="140" y1="-4" x2="140" y2="4"></line><line x1="140" y1="276" x2="140" y2="284"></line><line x1="-4" y1="140" x2="4" y2="140"></line><line x1="276" y1="140" x2="284" y2="140"></line></g>
+        </svg>
+        <div class="sat"></div>
+        <div class="portrait"><img src="assets/taner.png" alt="Portrait of Taner"></div>
       </div>
-      <span class="tick"></span>
     </div>
-    <div class="name-block">
-      <div class="name-eyebrow">Cool Silver</div>
-      <h1 class="name">Taner</h1>
-      <div class="role">Tech-Savvy, AI Innovation Driver, Chemist &amp; Blockchain Enthusiast - Bridging Science and Technology</div>
-      <div class="enter">
-        <span>Enter orbit</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-      </div>
+    <div class="meta">
+      <div class="side-label">01 · Cool silver</div>
+      <h2 class="name">Taner</h2>
+      <p class="role"><span class="long">AI innovation driver and chemist, bridging science and technology.</span><span class="short">AI innovation driver and chemist.</span></p>
+      <div class="tags"><span>Chemistry</span><span>AI</span><span>Blockchain</span></div>
+      <span class="enter">Enter Taner's page<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
     </div>
   </a>
 
   <a class="half R" href="/neshe/" data-side="R" aria-label="Enter Neshe's page">
-    <div class="orbit">
-      <div class="portrait-glow"></div>
-      <div class="portrait">
-        <img src="assets/neshe.png" alt="Neshe">
+    <div class="orbit-wrap">
+      <div class="orbit">
+        <div class="portrait-glow"></div>
+        <svg class="rings" viewBox="0 0 280 280" aria-hidden="true">
+          <circle class="ring inner" pathLength="1" cx="140" cy="140" r="124"></circle>
+          <circle class="ring outer" pathLength="1" cx="140" cy="140" r="139"></circle>
+          <g class="ticks"><line x1="140" y1="-4" x2="140" y2="4"></line><line x1="140" y1="276" x2="140" y2="284"></line><line x1="-4" y1="140" x2="4" y2="140"></line><line x1="276" y1="140" x2="284" y2="140"></line></g>
+        </svg>
+        <div class="sat"></div>
+        <div class="portrait"><img src="assets/neshe.png" alt="Portrait of Neshe"></div>
       </div>
-      <span class="tick"></span>
     </div>
-    <div class="name-block">
-      <div class="name-eyebrow">Warm Silver</div>
-      <h1 class="name">Neshe</h1>
-      <div class="role">Dedicated Problem Solver | Sustainability and Tech Enthusiast | Building Strategic Partnerships to Drive Positive Impact</div>
-      <div class="enter">
-        <span>Enter orbit</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-      </div>
+    <div class="meta">
+      <div class="side-label">02 · Warm silver</div>
+      <h2 class="name">Neshe</h2>
+      <p class="role"><span class="long">Problem solver building strategic partnerships that drive positive impact.</span><span class="short">Problem solver for sustainability, tech and partnerships.</span></p>
+      <div class="tags"><span>Sustainability</span><span>Tech</span><span>Partnerships</span></div>
+      <span class="enter">Enter Neshe's page<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
     </div>
   </a>
 </div>
 
-<div class="divider"></div>
-<div class="divider-label">
-  <span class="tag">binary system</span>
-  <span class="or">/</span>
-  <span class="tag">two wells</span>
-</div>
+<div class="divider" aria-hidden="true"></div>
+<div class="divider-or" aria-hidden="true">or</div>
+<svg class="axis" aria-hidden="true"><line></line></svg>
 
-<div class="bottom">
-  <div class="caption">
-    Two bodies — one orbit. Hover a side to pull the field toward it; click to enter that page.<span class="comet-hud" hidden> Drag anywhere to sling a comet.</span>
+<footer class="bottom">
+  <div class="copy">© 2026<span class="copy-names"> Taner &amp; Neshe Tuna</span></div>
+  <div class="hint">
+    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><rect x="1" y="1" width="12" height="16" rx="6"></rect><line x1="7" y1="4" x2="7" y2="7"></line></svg>
+    <span>Hover a side to pull the field · drag empty space to sling a comet</span>
   </div>
-  <div class="coords">
-    <div>cursor&nbsp; <span class="v" id="cv">0.000, 0.000</span></div>
-    <div>focus &nbsp;&nbsp;<span class="v" id="fv">—</span></div>
-    <div class="comet-hud" hidden>comets&nbsp; <span class="v" id="comet-score">—</span></div>
-    <div class="comet-hud" hidden>orbit &nbsp;&nbsp;<span class="v" id="comet-orbit">—</span></div>
+  <div class="hud-wrap">
+    <div class="hud comet-hud" hidden>
+      <span>Comets <span class="v" id="comet-score">—</span></span>
+      <span class="sep" aria-hidden="true"></span>
+      <span>Orbit <span class="v" id="comet-orbit">—</span></span>
+    </div>
   </div>
-</div>
+</footer>
 
 <div class="comet-note" id="comet-note" aria-live="polite"></div>
+<div class="veil" aria-hidden="true"></div>
 
 <script src="tunas-shader.js"></script>
 <script>
 (function () {
+  const root = document.documentElement;
   const canvas = document.getElementById('shader-canvas');
-  let shader;
-  try { shader = new window.TunasShader(canvas); }
-  catch (e) { console.error(e); return; }
+  let shader = null;
+  try { shader = new window.TunasShader(canvas); } catch (e) { console.error(e); }
   window.tunasShader = shader;
 
-  const cv = document.getElementById('cv');
-  const fv = document.getElementById('fv');
+  const halves = [...document.querySelectorAll('.half')];
+  let focused = null;
 
-  window.addEventListener('mousemove', (e) => {
-    const x = e.clientX / window.innerWidth;
-    const y = 1 - e.clientY / window.innerHeight;
-    shader.setMouse(x, y);
-    cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
-  });
-
-  const halves = document.querySelectorAll('.half');
-
-  // Hover (desktop)
-  halves.forEach(h => {
-    h.addEventListener('mouseenter', () => {
-      shader.setFocus(h.dataset.side);
-      h.classList.add('is-focused');
-      fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
+  // One side in focus: it comes forward, the other steps back, the field leans to it.
+  function focus(h) {
+    if (h === focused) return;
+    focused = h;
+    halves.forEach(o => {
+      o.classList.toggle('is-focused', o === h);
+      o.classList.toggle('is-dimmed', !!h && o !== h);
     });
-    h.addEventListener('mouseleave', () => {
-      shader.setFocus(null);
-      h.classList.remove('is-focused');
-      fv.textContent = '—';
-    });
-    h.addEventListener('click', (e) => {
-      const r = canvas.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = 1 - (e.clientY - r.top) / r.height;
-      shader.pulse(x, y);
-    });
-  });
-
-  // Touch — first tap focuses that side (mimics hover), second tap navigates.
-  // Any tap on the other side moves focus there.
-  let touchFocused = null;
-  let touchReleaseTimer = null;
-
-  function focusHalf(h, x, y) {
-    clearTimeout(touchReleaseTimer);
-    halves.forEach(o => { if (o !== h) o.classList.remove('is-focused'); });
-    h.classList.add('is-focused');
-    shader.setFocus(h.dataset.side);
-    shader.pulse(x, y);
-    fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
-    touchFocused = h;
-    touchReleaseTimer = setTimeout(() => {
-      h.classList.remove('is-focused');
-      shader.setFocus(null);
-      fv.textContent = '—';
-      touchFocused = null;
-    }, 2500);
+    if (shader) shader.setFocus(h ? h.dataset.side : null);
   }
 
-  // Window-wide touch tracking — finger movement acts like hover on mobile.
-  // Detects which half the finger is over and focuses it automatically.
-  function halfUnderPoint(clientX, clientY) {
+  function toField(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return [(clientX - r.left) / r.width, 1 - (clientY - r.top) / r.height];
+  }
+
+  window.addEventListener('mousemove', (e) => {
+    if (shader) shader.setMouse(...toField(e.clientX, e.clientY));
+  }, { passive: true });
+
+  halves.forEach(h => {
+    h.addEventListener('mouseenter', () => focus(h));
+    h.addEventListener('mouseleave', () => focus(null));
+    h.addEventListener('focus', () => focus(h));
+    h.addEventListener('blur', () => focus(null));
+  });
+
+  // Touch: a finger over a side focuses it, like hover; lifting lets go after a moment.
+  let touchTimer = 0;
+  function halfAt(x, y) {
     for (const h of halves) {
       const r = h.getBoundingClientRect();
-      if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
-        return h;
-      }
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return h;
     }
     return null;
   }
-
-  function handleTouchPoint(clientX, clientY) {
-    const r = canvas.getBoundingClientRect();
-    const x = (clientX - r.left) / r.width;
-    const y = 1 - (clientY - r.top) / r.height;
-    shader.setMouse(x, y);
-    cv.textContent = `${x.toFixed(3)}, ${y.toFixed(3)}`;
-
-    const h = halfUnderPoint(clientX, clientY);
-    if (h && h !== touchFocused) {
-      clearTimeout(touchReleaseTimer);
-      halves.forEach(o => { if (o !== h) o.classList.remove('is-focused'); });
-      h.classList.add('is-focused');
-      shader.setFocus(h.dataset.side);
-      fv.textContent = h.dataset.side === 'L' ? 'TANER' : 'NESHE';
-      touchFocused = h;
-    } else if (!h && touchFocused) {
-      touchFocused.classList.remove('is-focused');
-      shader.setFocus(null);
-      fv.textContent = '—';
-      touchFocused = null;
-    }
+  function onTouch(e) {
+    const t = e.touches[0];
+    if (!t) return;
+    clearTimeout(touchTimer);
+    if (shader) shader.setMouse(...toField(t.clientX, t.clientY));
+    focus(halfAt(t.clientX, t.clientY));
   }
-
-  window.addEventListener('touchstart', (e) => {
-    if (e.touches[0]) handleTouchPoint(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  window.addEventListener('touchmove', (e) => {
-    if (e.touches[0]) handleTouchPoint(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
+  window.addEventListener('touchstart', onTouch, { passive: true });
+  window.addEventListener('touchmove', onTouch, { passive: true });
   window.addEventListener('touchend', () => {
-    clearTimeout(touchReleaseTimer);
-    touchReleaseTimer = setTimeout(() => {
-      if (touchFocused) {
-        touchFocused.classList.remove('is-focused');
-        shader.setFocus(null);
-        fv.textContent = '—';
-        touchFocused = null;
-      }
-    }, 1200);
+    clearTimeout(touchTimer);
+    touchTimer = setTimeout(() => focus(null), 1200);
   }, { passive: true });
 
-  const comp = document.querySelector('.composition');
-  window.addEventListener('mousemove', (e) => {
-    const x = (e.clientX / window.innerWidth - 0.5);
-    const y = (e.clientY / window.innerHeight - 0.5);
-    comp.style.transform = `translate(${-x * 8}px, ${-y * 6}px)`;
+  // Entering: a ripple where you clicked, the portrait grows, the page fades out.
+  // (A comet release never gets here: comet-slingshot.js swallows that click.)
+  const motion = root.classList.contains('motion');
+  halves.forEach(h => h.addEventListener('click', (e) => {
+    if (shader) shader.pulse(...toField(e.clientX, e.clientY));
+    if (!motion || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    focus(h);
+    h.classList.add('is-entering');
+    root.classList.add('leaving');
+    setTimeout(() => { window.location.href = h.href; }, 480);
+  }));
+  // Coming back with the browser's Back button shows the page as it was left.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    root.classList.remove('leaving');
+    halves.forEach(o => o.classList.remove('is-entering'));
+    focus(null);
   });
+
+  // Phones: a line from one portrait to the other, through the "or".
+  const axis = document.querySelector('.axis line');
+  const orChip = document.querySelector('.divider-or');
+  const phone = window.matchMedia('(max-width: 720px)');
+  function placeAxis() {
+    if (!phone.matches) { orChip.style.left = orChip.style.top = ''; return; }
+    const [a, b] = halves.map(h => h.querySelector('.orbit').getBoundingClientRect());
+    const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    const bx = b.left + b.width / 2, by = b.top + b.height / 2;
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const ux = (bx - ax) / len, uy = (by - ay) / len;
+    const ra = a.width / 2 + 10, rb = b.width / 2 + 10;
+    axis.setAttribute('x1', (ax + ux * ra).toFixed(1));
+    axis.setAttribute('y1', (ay + uy * ra).toFixed(1));
+    axis.setAttribute('x2', (bx - ux * rb).toFixed(1));
+    axis.setAttribute('y2', (by - uy * rb).toFixed(1));
+    orChip.style.left = `${((ax + bx) / 2).toFixed(1)}px`;
+    orChip.style.top = `${((ay + by) / 2).toFixed(1)}px`;
+  }
+  placeAxis();
+  window.addEventListener('resize', placeAxis);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeAxis);
+
+  // Depth: the two portraits drift apart from the cursor (mouse only).
+  if (motion && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    const wraps = halves.map(h => h.querySelector('.orbit-wrap'));
+    let px = 0, py = 0, tx = 0, ty = 0, raf = 0;
+    const settle = () => {
+      px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+      wraps.forEach((w, i) => {
+        const s = i === 0 ? -1 : 1;
+        w.style.translate = `${(s * px * 18).toFixed(1)}px ${(s * py * 12).toFixed(1)}px`;
+      });
+      raf = Math.abs(tx - px) + Math.abs(ty - py) > 0.002 ? requestAnimationFrame(settle) : 0;
+    };
+    window.addEventListener('mousemove', (e) => {
+      tx = e.clientX / window.innerWidth - 0.5;
+      ty = e.clientY / window.innerHeight - 0.5;
+      if (!raf) raf = requestAnimationFrame(settle);
+    }, { passive: true });
+  }
 })();
 </script>
 <script src="comet-slingshot.js?v=1"></script>
