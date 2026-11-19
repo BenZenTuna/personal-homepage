@@ -14,7 +14,8 @@
  *   place is switched everywhere. A reload starts afresh.
  * - Settings windows work generically: …/settings merges, …/pause pauses,
  *   …/test and …/try ring.
- * - The bird box's camera is a looping clip (media/birdbox.mp4).
+ * - The bird box's camera plays real recordings from it, one after another
+ *   (demo/birdcam/), and Birds' list of movements holds the same clips.
  * - Requests that are not /api/* (fonts, pictures, sounds) go to the network.
  */
 (function () {
@@ -77,8 +78,9 @@
     if (!n || !n.settings) return;
     // Dim after two minutes untouched, at any hour — never already dimmed when
     // somebody opens the page, which the wall does at night.
+    // It dims to the butterfly tree (look 6), the demo's own look since 2026-11-19.
     Object.assign(n.settings, { night: false, day_hours: Array.from({ length: 24 }, (_, h) => h), day_cycle: false,
-      day_idle_min: 2, look: 4, look_auto: false });
+      day_idle_min: 2, look: 6, look_auto: false });
     n.wall = true;
   }
   // A visitor who has just arrived has just touched it: two minutes before it dims.
@@ -118,6 +120,33 @@
   window.EventSource = DemoEventSource;
 
   /* ---------------------------------------------------- the bird box -- */
+  /* Real recordings from the bird box's own camera, without their sound
+     (since 2026-11-19, in place of the made-up clip): a great tit
+     coming in by day (18 Oct), one asleep in the box at night (24 Sep), and
+     the empty box (18 Oct). The live view plays them one after another; the
+     list of movements under Birds holds the same three, each with its clip. */
+  const BIRDCAM = [
+    { n: 1, event: 'VideoMotion', ago: 2 * 3600 + 17 * 60, verdict: 'bird', why: 'something in the hole' },
+    { n: 2, event: 'VideoMotion', ago: 9 * 3600 + 40 * 60, verdict: 'bird', why: 'something in the hole' },
+    { n: 3, event: 'Recorded', ago: 2 * 86400 + 5 * 3600 },
+  ].map((b) => ({ ...b, clip: `demo/birdcam/bird-${b.n}.mp4`, still: `demo/birdcam/bird-${b.n}.jpg` }));
+  GET['/api/motion/events'] = {
+    events: BIRDCAM.map((b) => ({
+      id: `bird${b.n}`, at: now() - b.ago, event: b.event,
+      snapshot: `bird-${b.n}.jpg`, snapshot_url: b.still, clip: `bird-${b.n}.mp4`, clip_url: b.clip,
+      ...(b.verdict ? { verdict: b.verdict, why: b.why } : {}), kept: false,
+    })),
+    total: BIRDCAM.length, more: false,
+  };
+  // The stream's own copy (what Birds shows first) holds the same three.
+  if (SNAP.motion) {
+    const ev = GET['/api/motion/events'].events;
+    Object.assign(SNAP.motion, {
+      events: clone(ev), total: ev.length, kept: 0, last_at: ev[0].at, oldest_at: ev[ev.length - 1].at,
+      count_today: ev.filter((e) => e.at * 1000 >= mid(Date.now())).length,
+    });
+  }
+
   const define = customElements.define.bind(customElements);
   customElements.define = function (name, cls, opts) {
     if (name !== 'kitchen-stream') return define(name, cls, opts);
@@ -125,19 +154,26 @@
       constructor() {
         super();
         const v = document.createElement('video');
-        Object.assign(v, { loop: true, autoplay: true, playsInline: true, muted: true, poster: 'media/birdbox.jpg' });
+        Object.assign(v, { autoplay: true, playsInline: true, muted: true, poster: BIRDCAM[0].still });
         v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+        v.addEventListener('ended', () => this.show(this.at + 1));
         this.video = v;
+        this.at = 0;
+      }
+      show(i) {
+        this.at = i % BIRDCAM.length;
+        this.video.poster = BIRDCAM[this.at].still;
+        this.video.src = BIRDCAM[this.at].clip;
+        this.video.play().catch(() => {});
       }
       connectedCallback() {
         if (this.video.isConnected) return;
         this.appendChild(this.video);
         this.video.muted = this.startMuted !== false;
-        this.video.src = 'media/birdbox.mp4';
-        this.video.play().catch(() => {});
+        this.show(this.at);
       }
-      set src(_) { /* no camera: the clip */ }
-      get src() { return 'media/birdbox.mp4'; }
+      set src(_) { /* no camera: the recordings */ }
+      get src() { return BIRDCAM[this.at].clip; }
     }
     return define(name, DemoStream, opts);
   };
