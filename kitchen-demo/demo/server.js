@@ -63,7 +63,7 @@
     if (Array.isArray(v)) return v.map(shift);
     if (v && typeof v === 'object') {
       const o = {};
-      for (const k of Object.keys(v)) o[k] = shift(v[k]);
+      for (const k of Object.keys(v)) o[ISO.test(k) ? shiftIso(k) : k] = shift(v[k]);   // a day's totals keyed by its date
       return o;
     }
     return v;
@@ -201,6 +201,9 @@
           { icon: '📅', text: 'Today: Book club at Sam\'s at 19:00.' }], speech: '' });
       }
       if (path === '/api/countdown') return json({ events: SNAP.countdown });
+      // The chart's history, one recording per range (…?range=day, …?range=week).
+      const ranged = params.get('range') ? `${path}?range=${params.get('range')}` : '';
+      if (ranged && ranged in GET) return json(clone(GET[ranged]));
       if (path in GET) return json(clone(GET[path]));
       const k = busKey(mod);
       if (k && parts.length === 3) return json(clone(SNAP[k]));

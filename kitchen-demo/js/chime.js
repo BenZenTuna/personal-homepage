@@ -25,6 +25,10 @@
    Only the `test` ring comes from the server, so that "try it" rings every
    screen at once the way a real doorbell does. */
 
+/* The show on screen while the hour sounds (2026-11-12): hourshow.js, with
+   this page's build stamp like every module. */
+const { default: show, SKINS, TIMES, SECS, DIGITS } = await import(`./hourshow.js${new URL(import.meta.url).search}`);
+
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -53,6 +57,8 @@ export default {
     this.ctx = ctx;
     this.snd = sound;
     this.player = sound.player();
+    show.init(ctx);
+    this.showNext = 0;     // the sheet's "Show it now" goes through the sounds in turn
     this.buildSheet();
     // Sounds uploaded in its sheet (2026-10-18) redraw it as they change.
     ctx.soundlib?.onChange(() => this.render());
@@ -132,7 +138,46 @@ export default {
     if (s.weekend_silent && this.snd.isWeekend()) return false;
     const id = this.voice(s);
     if (!id) return false;              // every sound paused
-    return this.player.play(id, this.snd.volumeAt(s));
+    const played = this.player.play(id, this.snd.volumeAt(s));
+    // ...and the show, for as long as it sounds. Only when it is heard: an
+    // hour silenced by quiet hours or a 0% band stays dark as well.
+    if (played) this.putOnShow(s, id);
+    return played;
+  },
+
+  putOnShow(s, id, audio = this.player.playing) {
+    const skin = s.show || 'off';
+    if (skin === 'off') return false;
+    try {
+      return show.play({ skin, id, name: this.snd.soundOf(id)?.name || '', audio, sun: this.sunToday(),
+        times: s.show_times, secs: s.show_secs, size: s.show_size });
+    } catch (e) {
+      console.error('hour show failed', e);
+      return false;
+    }
+  },
+
+  /* Today's sunrise and sunset from the forecast (ms), for the show's sky;
+     null without a forecast, and the show then takes 07:00 and 17:00. */
+  sunToday() {
+    const w = this.ctx.weather;
+    const today = new Date().toDateString();
+    for (const d of w?.data?.daily || []) {
+      const rise = w.ms(d.sunrise);
+      const set = w.ms(d.sunset);
+      if (Number.isFinite(rise) && Number.isFinite(set) && new Date(rise).toDateString() === today) return { rise, set };
+    }
+    return null;
+  },
+
+  /* The sheet's "Show it now": here only, at the preview volume, a
+     different sound each press, so each creature can be seen in turn. */
+  preview() {
+    const s = this.settings();
+    const ids = this.pool(s).length ? this.pool(s) : this.allIds();
+    const id = ids[this.showNext++ % ids.length];
+    this.player.play(id, this.snd.previewVolume(s));
+    this.putOnShow({ ...s, show: s.show && s.show !== 'off' ? s.show : SKINS[1][0] }, id);
   },
 
   /* Which sound this hour gets. Usually the one that was chosen; with
@@ -239,6 +284,16 @@ export default {
   },
 
   // -------------------------------------------------------------- sheet ----
+  /* The On screen section's line: the look, and how it goes if not just once as the sound. */
+  showNote(s) {
+    const look = SKINS.find(([v]) => v === (s.show || 'off'))?.[1] || 'Off';
+    if ((s.show || 'off') === 'off') return look;
+    const parts = [look];
+    if ((s.show_times || 1) > 1) parts.push(`${s.show_times}×`);
+    if (s.show_secs) parts.push(`${SECS.find(([v]) => v === s.show_secs)?.[1] || ''} each`);
+    return parts.join(' · ');
+  },
+
   buildSheet() {
     const el = document.createElement('div');
     el.id = 'ch-sheet';
@@ -364,6 +419,37 @@ export default {
           </div>
         </div>`, { note: this.soundName() })}
 
+      ${kit.sec('On screen', `
+        <div class="ls-row">
+          <span class="ls-label"><span class="db-hint sheet-lead">while the sound plays, the whole screen becomes a
+            clock showing the time, and the animal that is calling comes out: a crane flies
+            over, the donkey walks round the clock braying, the frog hops, the owl lands on
+            it. Calm pond and Butterfly tree are the screen dimming's own looks, with the new
+            hour made for the occasion: on the pond a butterfly paints it in colour, on the
+            tree its butterflies fly off the branches and land in its shape. A tap anywhere ends it. Only when the hour is heard — a silent hour stays
+            dark.</span></span>
+          <div class="sheet-ctl">
+            <div><span class="sheet-cap">Look</span><span class="ls-set sheet-seg">${SKINS.map(([v, name]) => `
+              <button class="ls-btn${pick(s.show || 'off', v)}${v === 'off' ? ' sheet-none' : ''}" data-put="show"
+                      data-v="${esc(JSON.stringify(v))}" aria-pressed="${(s.show || 'off') === v}">${esc(name)}</button>`).join('')}
+            </span></div>
+            <div><span class="sheet-cap">How many times</span><span class="ls-set sheet-seg">${TIMES.map((v) => `
+              <button class="ls-btn${pick(s.show_times || 1, v)}" data-put="show_times" data-v="${v}"
+                      aria-pressed="${(s.show_times || 1) === v}">${v}×</button>`).join('')}
+            </span></div>
+            <div><span class="sheet-cap">Each time for</span><span class="ls-set sheet-seg">${SECS.map(([v, name]) => `
+              <button class="ls-btn${pick(s.show_secs || 0, v)}" data-put="show_secs" data-v="${v}"
+                      aria-pressed="${(s.show_secs || 0) === v}">${esc(name)}</button>`).join('')}
+            </span></div>
+            <div><span class="sheet-cap">The hour’s figures <small>· Calm pond and Butterfly tree</small></span>
+              <span class="ls-set sheet-seg">${DIGITS.map(([v, name]) => `
+              <button class="ls-btn${pick(s.show_size || 'l', v)}" data-put="show_size" data-v="${esc(JSON.stringify(v))}"
+                      aria-pressed="${(s.show_size || 'l') === v}">${esc(name)}</button>`).join('')}
+            </span></div>
+            <span class="sheet-acts"><button class="ls-btn ch-show">▶ Show it now</button></span>
+          </div>
+        </div>`, { note: this.showNote(s) })}
+
       ${kit.sec('Quiet hours', `${rules.quiet}${rules.weekend}`,
         { note: snd.quietNote(s, { weekendQuiet: true, weekendSilent: !!s.weekend_silent }) })}
 
@@ -405,6 +491,7 @@ export default {
       btn.onclick = (e) => { e.stopPropagation(); this.togglePause(btn.dataset.pause); };
     });
     this.bodyEl.querySelector('.ch-test').onclick = () => this.test();
+    this.bodyEl.querySelector('.ch-show').onclick = () => this.preview();
     // An upload is the hour's sound at once.
     this.ctx.soundlib?.wire(this.bodyEl, { onUploaded: (r) => this.put({ sound: r.id }) });
     kit.sync(this.sheet);

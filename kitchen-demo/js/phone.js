@@ -66,7 +66,7 @@ const HOURS = 6;          // the hours in the weather card on Now
 const SHEETS = ['#wx-overlay', '#ts-overlay', '#cl-sheet', '#lx-sheet', '#light-sheet', '#db-sheet',
   '#ch-sheet', '#at-sheet', '#nt-sheet', '#pb-sheet', '#sc-sheet', '#sl-sheet', '#sb-doc', '#au-sheet', '#bf-sheet', '#ask-sheet',
   '#bb-sheet', '#cd-sheet', '#dc-sheet', '#df-sheet', '#rf-sheet', '#an-sheet', '#tn-sheet', '#alarm-sheet',
-  '#vc-sheet', '#fa-sheet', '#sn-sheet', '#pt-sheet'].join(', ');
+  '#vc-sheet', '#fa-sheet', '#sn-sheet', '#pt-sheet', '#dh-sheet', '#zs-sheet'].join(', ');
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

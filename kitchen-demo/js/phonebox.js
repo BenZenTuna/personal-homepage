@@ -346,7 +346,7 @@ export default {
     const at = new Date(last.at * 1000);
     const when = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
     const day = at.toDateString() === new Date().toDateString() ? 'today' : at.toLocaleDateString();
-    const sent = (last.sent || []).map((p) => p.label).join(', ');
+    const sent = (last.sent || []).map((p) => `${p.label}${p.slow ? ' (slow: Home Assistant did not say it arrived)' : ''}`).join(', ');
     const failed = (last.failed || []).map((p) => `${p.label} (${p.error})`).join(', ');
     return `${last.test ? 'Test' : 'Sent'} ${day} at ${when}`
       + (sent ? ` to ${sent}` : ' to nobody')

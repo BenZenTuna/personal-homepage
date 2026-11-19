@@ -39,6 +39,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
    rules after this one's arrived. app.js hands it over in init(). */
 let snd = null;
 
+/* The newest ring this tab has seen, kept across reloads (see shouldRing).
+   No storage — a private window, or the tests in node — is simply 0. */
+const HEARD_KEY = 'kitchen-doorbell-heard';
+function heardBefore() {
+  try { const v = Number(globalThis.sessionStorage?.getItem(HEARD_KEY)); return Number.isFinite(v) ? v : 0; }
+  catch { return 0; }
+}
+function rememberHeard(at) {
+  try { globalThis.sessionStorage?.setItem(HEARD_KEY, String(at)); } catch { /* only a second ring lost */ }
+}
+
 export default {
   /* The document the server keeps, as it last arrived. `null` until the first
      snapshot, which is not the same as a server without a doorbell in it —
@@ -98,6 +109,12 @@ export default {
     const at = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
     const first = !this.seen;
     this.seen = true;
+    // The ring the page before this one already heard (2026-11-10). A wall
+    // the door woke thaws with its old page, which plays the ring as it
+    // arrives; seconds later wake.js reloads, and the new page's first
+    // document holds that same ring, under a minute old — so it rang twice
+    // for one door. The tab's sessionStorage outlives the reload.
+    if (first) this.lastRingAt = Math.max(this.lastRingAt ?? 0, heardBefore()) || null;
     const newer = at !== null && (this.lastRingAt === null || at > this.lastRingAt);
     // The one thing that may be played on a first document: a ring that
     // happened seconds ago. That is the wall which the door itself woke —
@@ -108,7 +125,10 @@ export default {
     // deploy.
     const justHappened = at !== null && now - at <= FRESH_S && now - at >= -FRESH_S;
     const fresh = newer && (!first || justHappened);
-    if (at !== null) this.lastRingAt = Math.max(this.lastRingAt ?? 0, at);
+    if (at !== null) {
+      this.lastRingAt = Math.max(this.lastRingAt ?? 0, at);
+      rememberHeard(this.lastRingAt);
+    }
     return fresh;
   },
 

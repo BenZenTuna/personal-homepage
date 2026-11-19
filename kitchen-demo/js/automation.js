@@ -48,8 +48,9 @@ const SOUND_NAMES = {
 /* The alert types on the two group cards, in the order their sheets list them. */
 export const GROUPS = {
   house: { name: 'House alerts', emoji: '🏠',
-           types: ['water', 'climate', 'battery', 'offline', 'camera', 'diffuser_dry', 'diffuser_low', 'diffuser_empty'],
-           sub: 'flowers, rooms, batteries, devices, bird box, diffuser' },
+           types: ['water', 'climate', 'battery', 'offline', 'camera', 'diffuser_dry', 'diffuser_low', 'diffuser_empty',
+             'diffuser_paused', 'dehum_tank', 'dehum_paused'],
+           sub: 'flowers, rooms, batteries, devices, bird box, diffuser, dehumidifier' },
   /* `pctemp` (2026-10-22): a computer running hot. Its look is set here like
      every other's; where it goes may be each machine's own, on the PC
      temperatures card (pctemps.js). */

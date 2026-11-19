@@ -118,6 +118,22 @@ const METRICS = [
     soil: true,
   },
   {
+    // When the dehumidifier ran (2026-11-14, Alex: "add a Dehumidifier on
+    // and off chart, which follows when the humidifier was on and off during
+    // days"): its own history (dehumidifier.py), drawn as a row a day — or a
+    // bar a day over 12 months — never as a line. There only while Home
+    // Assistant has the dehumidifier (`dh`).
+    key: 'dh',
+    icon: '💦',
+    label: 'Dehumidifier',
+    unit: '',
+    dh: true,
+    entity: () => '',
+    fmt: (v) => (v == null ? '—' : dur(v)),
+    axis: (v) => `${Math.round(v)} h`,
+    span: 1,
+  },
+  {
     // The computers' sensors: a temperature each (`field`), from a history
     // and a list of their own (`pc`) rather than the rooms'.
     key: 'pc',
@@ -133,6 +149,16 @@ const METRICS = [
   },
 ];
 const PC = METRICS.find((m) => m.pc);
+const DH = METRICS.find((m) => m.dh);
+/* What ran the dehumidifier — each its colour and its chip on the tab. Teal
+   for the automatic, the humidity chart's shading's own. */
+const DH_KINDS = [
+  { src: 'auto', label: 'Automatic', colour: '#5fb3b3' },
+  { src: 'laundry', label: 'Laundry', colour: '#c98500' },
+  { src: 'card', label: 'From the card', colour: '#3987e5' },
+  { src: 'device', label: 'By hand', colour: '#9085e9' },
+];
+const dhKind = (src) => DH_KINDS.find((k) => k.src === src) || DH_KINDS[3];
 /* The computers' sensors whose lines are on until taken off: each machine's
    CPU and GPU (isOff), which take their colours first too (pcSlots). */
 const startsOn = (r) => ['cpu', 'gpu'].includes(r.kind);
@@ -169,6 +195,13 @@ function afterWords(minutes) {
   return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 }
 
+/* A length of time, in ms, the way the dehumidifier's tab says it. */
+function dur(ms) {
+  const m = Math.round((Number(ms) || 0) / 60000);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+}
+
 /* Is this state a number we can print? Home Assistant says "unavailable" and
    "unknown" for a sensor whose battery has gone or whose Zigbee router is
    down, and both of those are strings that Number() turns into NaN. */
@@ -192,6 +225,9 @@ export default {
   metric: 'temp',     // the figure the chart shows
   pc: null,           // GET /api/pctemps: the computers and their sensors now
   pcData: null,       // their history, for one range
+  dhOn: false,        // Home Assistant has the dehumidifier: its tab is there
+  dhGoing: null,      // ...and whether it is running, to draw a start or stop
+  dhData: null,       // its runs, for one range
 
   init(ctx) {
     this.ctx = ctx;
@@ -209,12 +245,14 @@ export default {
       if (!d || !Array.isArray(d.climate)) return;
       this.setRooms(d.climate);
       // The statistics name each place's sensor: redrawn if the chart is up.
-      if (this.data && !this.current().pc && this.sheet?.classList.contains('open')) {
+      if (this.data && this.tabKind() === 'rooms' && this.sheet?.classList.contains('open')) {
         this.statsEl.innerHTML = this.stats(this.current(), this.data);
       }
     });
     // The computers now: their chips' figures, and whether there is a tab.
     ctx.bus.on('pctemps', (d) => { if (d && Array.isArray(d.machines)) this.takePc(d); });
+    // The dehumidifier (dehumidifier.py over SSE): whether there is a tab.
+    ctx.bus.on('dehumidifier', (d) => this.takeDh(d));
     /* The charts are drawn at the pixel width they were measured at, so a
        window that changes size has to draw them again — otherwise the line
        stops short of the right edge, or runs off it. Only while the sheet is
@@ -252,7 +290,7 @@ export default {
     // PC temperatures tab has chips and a history of its own, which a room's
     // sensor moving does not change.
     this.data = null;
-    if (this.current().pc) this.buildMetrics();
+    if (this.tabKind() !== 'rooms') this.buildMetrics();
     else {
       this.buildLegend(this.rooms);
       if (this.sheet.classList.contains('open')) this.load();
@@ -263,8 +301,15 @@ export default {
   /* The tabs: the rooms' figures this house has sensors for, then the
      computers' once one has reported a sensor. */
   pickMetrics() {
-    const base = METRICS.filter((m) => !m.pc && this.rooms.some((r) => m.entity(r)));
-    this.metrics = this.pcRows().length ? [...base, PC] : base;
+    const base = METRICS.filter((m) => !m.pc && !m.dh && this.rooms.some((r) => m.entity(r)));
+    this.metrics = [...base, ...(this.dhOn ? [DH] : []), ...(this.pcRows().length ? [PC] : [])];
+  },
+
+  /* Which history the tab up now draws from: the rooms', the computers' or
+     the dehumidifier's. */
+  tabKind() {
+    const m = this.current();
+    return m.pc ? 'pc' : m.dh ? 'dh' : 'rooms';
   },
 
   /* ---------------- the computers (PC temperatures) ---------------- */
@@ -335,15 +380,17 @@ export default {
 
   /* The history the tab up now draws from. */
   shown() {
-    return this.current().pc ? this.pcData : this.data;
+    const k = this.tabKind();
+    return k === 'pc' ? this.pcData : k === 'dh' ? this.dhData : this.data;
   },
 
   /* The tab up now: its chips, and its history — fetched when `fresh` (the
      chart opening) or when it is not here for this range already. */
   showTab(fresh = false) {
-    const pc = !!this.current().pc;
-    const d = pc ? this.pcData : this.data;
-    this.buildLegend(pc ? this.pcLegend(d) : [...this.rooms, ...((d?.rooms || []).filter((x) => x.gone))]);
+    const k = this.tabKind();
+    const d = this.shown();
+    this.buildLegend(k === 'pc' ? this.pcLegend(d) : k === 'dh' ? this.dhLegend()
+      : [...this.rooms, ...((d?.rooms || []).filter((x) => x.gone))]);
     this.paintLegend();
     if (!fresh && d && d.range === this.range) this.draw();
     else this.load();
@@ -362,6 +409,12 @@ export default {
      as they were one event ago, which on a quiet evening is an empty string
      that stays empty until somebody turns a lamp on. */
   reading(room, states) {
+    // What ran the dehumidifier: its time on over the range, and how many runs.
+    if (room.dh) {
+      const s = this.dhTotals()[room.src];
+      return { temp: null, hum: null, tempText: s?.ms ? dur(s.ms) : '—',
+               humText: s?.n ? `${s.n} run${s.n === 1 ? '' : 's'}` : '', ok: true };
+    }
     // A computer's sensor: its figure from the server's snapshot, and no %.
     if (room.pc) {
       const c = this.pcSensor(room).s?.c ?? null;
@@ -425,9 +478,11 @@ export default {
       </span>`).join('');
   },
 
-  /* The flower in front of a soil sensor's name; nothing for any other. */
+  /* The flower in front of a soil sensor's name, an appliance's own icon
+     (the dehumidifier's 💦) in front of its; nothing for any other. */
   flower(r) {
-    return r.soil_entity ? `<i class="cl-flower">${FLOWER_SVG}</i>` : '';
+    if (r.soil_entity) return `<i class="cl-flower">${FLOWER_SVG}</i>`;
+    return r.icon ? `<i class="cl-icon" aria-hidden="true">${esc(r.icon)}</i> ` : '';
   },
 
   mount(header, before) {
@@ -509,8 +564,8 @@ export default {
         <div class="cl-ranges ls-set sheet-seg" role="group" aria-label="how far back"></div>
         <button class="ls-close cl-close">Close</button>
       </header>
+      <nav class="cl-metrics cl-tabs" role="tablist" aria-label="what the chart shows"></nav>
       <div class="cl-bar2">
-        <div class="cl-metrics" role="tablist"></div>
         <div class="cl-legend" role="group" aria-label="the places on the chart"></div>
         <div class="cl-allnone"><button class="cl-an" data-an="all">All</button><button class="cl-an" data-an="none">None</button></div>
       </div>
@@ -552,12 +607,12 @@ export default {
     this.metricsEl.addEventListener('click', (e) => {
       const b = e.target.closest('.cl-metric');
       if (!b || b.dataset.m === this.metric) return;
-      const wasPc = !!this.current().pc;
+      const was = this.tabKind();
       this.metric = b.dataset.m;
       this.keep();
       this.buildMetrics();
-      // To or from the computers: other chips, another history.
-      if (!!this.current().pc !== wasPc) this.showTab();
+      // To or from the computers or the dehumidifier: other chips, another history.
+      if (this.tabKind() !== was) this.showTab();
       else this.draw();
     });
     // What this screen chose last: the figure, the places taken off, and the
@@ -634,6 +689,15 @@ export default {
     const cur = this.current();
     this.metricsEl.innerHTML = this.metrics.map((m) => `<button class="cl-metric${m.key === cur.key ? ' on' : ''}"
       role="tab" aria-selected="${m.key === cur.key}" data-m="${m.key}">${m.icon} ${esc(m.label)}</button>`).join('');
+    // A strip wider than a phone scrolls sideways: the chosen tab in sight.
+    const on = this.metricsEl.querySelector('.cl-metric.on');
+    if (on && this.metricsEl.scrollWidth > this.metricsEl.clientWidth) {
+      const strip = this.metricsEl.getBoundingClientRect();
+      const tab = on.getBoundingClientRect();
+      if (tab.left < strip.left || tab.right > strip.right) {
+        this.metricsEl.scrollLeft += tab.left - strip.left - 12;
+      }
+    }
     this.paintState();
   },
 
@@ -641,6 +705,7 @@ export default {
      a line keeps its colour when another is taken off. The computers'
      sensors have theirs from pcSlots, worked out once per list. */
   colourOf(key) {
+    if (String(key).startsWith('dh:')) return dhKind(String(key).slice(3)).colour;
     const list = this.legendRooms || this.rooms;
     if (list.some((r) => r.pc)) {
       if (this.slotsOf !== list) { this.slots = this.pcSlots(list); this.slotsOf = list; }
@@ -744,17 +809,21 @@ export default {
 
   async load() {
     const want = this.range;
-    const pc = !!this.current().pc;
+    const kind = this.tabKind();
+    const pc = kind === 'pc';
     this.loading = true;
     this.note('Reading the history…');
     try {
-      const r = await fetch(pc ? `/api/pctemps/history?range=${encodeURIComponent(want)}`
-        : `/api/climate/history?range=${encodeURIComponent(want)}`);
+      const base = pc ? '/api/pctemps/history' : kind === 'dh' ? '/api/dehumidifier/history' : '/api/climate/history';
+      const r = await fetch(`${base}?range=${encodeURIComponent(want)}`, { cache: 'no-store' });
       const d = await r.json();
       // A later range, or the other kind of tab, won the race.
-      if (want !== this.range || pc !== !!this.current().pc) return;
+      if (want !== this.range || kind !== this.tabKind()) return;
       if (!r.ok) throw new Error(d.error || 'the history could not be read');
-      if (pc) {
+      if (kind === 'dh') {
+        this.dhData = d;
+        this.buildLegend(this.dhLegend());
+      } else if (pc) {
         for (const x of d.rooms || []) x.pc = true;      // read as a computer's (reading, limits)
         this.pcData = d;
         this.buildLegend(this.pcLegend(d));
@@ -770,8 +839,9 @@ export default {
         ? 'Home Assistant is not answering — this is the last history it gave.'
         : '');
     } catch (e) {
-      if (want !== this.range || pc !== !!this.current().pc) return;
+      if (want !== this.range || kind !== this.tabKind()) return;
       if (pc) this.pcData = null;
+      else if (kind === 'dh') this.dhData = null;
       else this.data = null;
       this.chartsEl.innerHTML = '';
       this.statsEl.innerHTML = '';
@@ -815,6 +885,12 @@ export default {
       - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
     this.vbh = Math.max(VB_H_MIN, Math.floor(room - HEADING_H) || VB_H_MIN);
     const m = this.current();
+    if (m.dh) {
+      this.chartsEl.innerHTML = this.dhChart(d);
+      this.statsEl.innerHTML = this.dhStats(d);
+      this.wireDh();
+      return;
+    }
     this.chartsEl.innerHTML = this.chart(m, d);
     this.statsEl.innerHTML = this.stats(m, d);
     this.wireScrub();
@@ -993,6 +1069,20 @@ export default {
       return `<polygon class="cl-band" style="--c:${s.colour}" points="${top.concat(bot).join(' ')}"/>`;
     }).join('') : '';
 
+    /* When the dehumidifier ran (2026-11-13, Alex: "add it also to the
+       humidity statistics"): a pale column behind the lines for each run, and
+       a strip along the foot of the plot that says it — the humidity's fall
+       under a run is what the dehumidifier did. Humidity only. */
+    const runs = m.key === 'hum' ? (d.runs || []).filter((r) => r.b > t0 && r.a < t1) : [];
+    const runBands = runs.map((r) => {
+      const a = x(Math.max(t0, r.a));
+      const w = Math.max(1.5, x(Math.min(t1, r.b)) - a);
+      return `<rect class="cl-run" x="${a.toFixed(1)}" y="${PAD.t}" width="${w.toFixed(1)}"
+        height="${VB_H - PAD.t - PAD.b}"/><rect class="cl-run-foot" x="${a.toFixed(1)}"
+        y="${VB_H - PAD.b - 6}" width="${w.toFixed(1)}" height="6"><title>${
+        esc(`dehumidifier on ${this.stamp(r.a, '5minute')}–${this.stamp(r.b, '5minute')}`)}</title></rect>`;
+    }).join('');
+
     // Each rule's words just over its line, from the top down; two rules
     // at or near one level (the point of having several) would print one
     // over the other, so a label that would touch the one above it goes
@@ -1063,10 +1153,11 @@ export default {
 
     return `<section class="cl-chart" data-m="${m.key}">
       <h3>${m.label} <span class="cl-sub">${esc(d.label)} · ${series.length} of ${shownCount} ${place}${shownCount === 1 ? '' : 's'}${
-        d.period === '5minute' ? '' : ` · each point ${d.period === 'hour' ? 'an hour' : 'a day'}'s average, the shade its low to high`}</span></h3>
+        d.period === '5minute' ? '' : ` · each point ${d.period === 'hour' ? 'an hour' : 'a day'}'s average, the shade its low to high`}${
+        runs.length ? ' · <span class="cl-run-key"></span> dehumidifier on' : ''}</span></h3>
       <svg viewBox="0 0 ${VB_W} ${VB_H}" style="height:${VB_H}px" preserveAspectRatio="none"
            role="img" aria-label="${m.label} over ${esc(d.label)}">
-        ${grid}${xticks}${bands}${limitLines}${lines}${marks}${endLabels}
+        ${grid}${xticks}${runBands}${bands}${limitLines}${lines}${marks}${endLabels}
         <line class="cl-cross off" x1="0" x2="0" y1="${PAD.t}" y2="${VB_H - PAD.b}"/>
       </svg>
       <div class="cl-scrub" hidden></div>
@@ -1153,6 +1244,288 @@ export default {
     return `<h3>${m.icon} ${esc(m.label)} <span class="cl-sub">${esc(d.label)}</span></h3>${rows}`;
   },
 
+  /* ---------------- the dehumidifier (2026-11-14) ----------------
+
+     Alex: "add a Dehumidifier on and off chart, which follows when the
+     humidifier was on and off during days". A row a day, 00 to 24 across,
+     newest at the top, each run a bar in the colour of what ran it — the
+     automatic, laundry, the card's hours or somebody's hand — and each day's
+     time on at the row's right. Over 12 months a row a day is 365 hairlines,
+     so it is a bar a day instead, as tall as the hours it was on: the server
+     keeps every day's total for 400 days (dehumidifier.py `days`), its runs
+     for 120. A tap on a run says when, how long, what ran it, the humidity at
+     each end and why it stopped. */
+
+  /* Its snapshot over SSE: whether the tab is there, and a run starting or
+     ending while the tab is up is drawn. */
+  takeDh(doc) {
+    if (!doc || typeof doc !== 'object') return;
+    const on = !!doc.configured;
+    const going = !!(doc.run || doc.other);
+    const open = !!this.sheet?.classList.contains('open');
+    if (on !== this.dhOn) {
+      const before = this.current().key;
+      this.dhOn = on;
+      this.pickMetrics();
+      if (this.metricsEl) this.buildMetrics();
+      if (open && this.current().key !== before) this.showTab();
+    }
+    if (this.dhGoing !== null && going !== this.dhGoing && open && this.tabKind() === 'dh') this.load();
+    this.dhGoing = going;
+  },
+
+  dhLegend() {
+    return DH_KINDS.map((k) => ({ key: `dh:${k.src}`, label: k.label, short: k.label, dh: true, src: k.src }));
+  },
+
+  /* The runs inside the range, of the kinds whose chips are on. */
+  dhRuns(d) {
+    return (d?.runs || []).filter((r) => r.b > d.from && r.a < d.to && !this.isOff(`dh:${r.src}`));
+  },
+
+  /* Per kind over the range: {ms on, runs}. From the runs, cut at the
+     range's ends; over 12 months from the days (the runs go back 120). */
+  dhTotals() {
+    const d = this.dhData;
+    const out = {};
+    if (!d) return out;
+    if (d.range === 'year') {
+      for (const day of Object.values(d.days || {})) {
+        for (const [src, s] of Object.entries(day.s || {})) {
+          out[src] = out[src] || { ms: 0, n: 0 };
+          out[src].ms += s * 1000;
+        }
+      }
+      // A day's runs are not split by kind: a run is counted with its kind from the runs kept.
+      for (const r of d.runs || []) if (r.a >= d.from) { out[r.src] = out[r.src] || { ms: 0, n: 0 }; out[r.src].n += 1; }
+      return out;
+    }
+    for (const r of d.runs || []) {
+      const ms = Math.min(d.to, r.b) - Math.max(d.from, r.a);
+      if (ms <= 0) continue;
+      out[r.src] = out[r.src] || { ms: 0, n: 0 };
+      out[r.src].ms += ms;
+      out[r.src].n += 1;
+    }
+    return out;
+  },
+
+  /* The calendar days a range touches, newest first: [{a, b}] in ms, each
+     from its local midnight to the next (23 or 25 hours when the clocks change). */
+  dhDays(t0, t1) {
+    const out = [];
+    const at = new Date(t0);
+    at.setHours(0, 0, 0, 0);
+    while (at.getTime() < t1) {
+      const a = at.getTime();
+      at.setDate(at.getDate() + 1);
+      out.push({ a, b: at.getTime() });
+    }
+    return out.reverse();
+  },
+
+  dhDayName(a, narrow) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const back = Math.round((today.getTime() - a) / 86400000);
+    if (back === 0) return 'Today';
+    if (back === 1) return narrow ? 'Yest.' : 'Yesterday';
+    const d = new Date(a);
+    return narrow ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' })
+      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  },
+
+  dhChart(d) {
+    const VB_W = this.vbw;
+    const narrow = VB_W < 700;
+    const all = (d.runs || []).filter((r) => r.b > d.from && r.a < d.to);
+    const kept = Math.max(d.from, d.kept_from || d.from);
+    const since = new Date(d.kept_from || d.from).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const keptWords = d.kept_from > d.from ? ` · kept since ${since}` : '';
+    if (!DH_KINDS.some((k) => !this.isOff(`dh:${k.src}`))) {
+      return `<section class="cl-chart cl-dh empty"><p class="cl-empty">Every kind is off — tap one above, or All.</p></section>`;
+    }
+    if (d.range === 'year') return this.dhYear(d, narrow, keptWords, kept);
+    const runs = this.dhRuns(d);
+    this.dhShown = runs;
+    const days = this.dhDays(d.from, d.to);
+    const L = narrow ? 58 : 132;
+    const R = narrow ? 58 : 118;
+    const T = 26;
+    const rowH = Math.max(14, Math.min(48, (this.vbh - T - 6) / days.length));
+    const H = Math.round(T + rowH * days.length + 6);
+    const W = VB_W - L - R;
+    const barH = Math.max(6, Math.round(rowH * 0.6));
+    const small = rowH < 24;
+    const step = narrow ? 6 : 3;
+    let out = '';
+    for (let h = 0; h <= 24; h += step) {
+      const x = L + (h / 24) * W;
+      out += `<line class="cl-vgrid" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${T - 4}" y2="${H - 6}"/>
+        <text class="cl-ax" x="${x.toFixed(1)}" y="${T - 10}" text-anchor="middle">${String(h).padStart(2, '0')}</text>`;
+    }
+    days.forEach((day, i) => {
+      const y = T + i * rowH;
+      const mid = y + rowH / 2;
+      const xOf = (t) => L + ((Math.min(day.b, Math.max(day.a, t)) - day.a) / (day.b - day.a)) * W;
+      // The part of the day that is known — kept, in the range, not yet to
+      // come — is the row; the rest only an outline: not "off", unknown.
+      const by = (mid - barH / 2).toFixed(1);
+      const ka = Math.max(day.a, kept);
+      const kb = Math.min(day.b, d.to);
+      const box = (a, b, cls) => (b > a
+        ? `<rect class="${cls}" x="${xOf(a).toFixed(1)}" y="${by}" width="${(xOf(b) - xOf(a)).toFixed(1)}" height="${barH}" rx="3"/>` : '');
+      out += box(day.a, Math.min(day.b, ka), 'cl-dh-none') + box(Math.max(day.a, kb), day.b, 'cl-dh-none')
+        + box(ka, kb, 'cl-dh-row');
+      let on = 0;
+      runs.forEach((r, n) => {
+        const a = Math.max(day.a, r.a, d.from);
+        const b = Math.min(day.b, r.b, d.to);
+        if (b <= a) return;
+        on += b - a;
+        const x = xOf(a);
+        out += `<rect class="cl-dh-run${r.now ? ' now' : ''}" data-i="${n}" style="--c:${dhKind(r.src).colour}"
+          x="${x.toFixed(1)}" y="${(mid - barH / 2).toFixed(1)}" width="${Math.max(2, xOf(b) - x).toFixed(1)}" height="${barH}" rx="2"/>`;
+      });
+      out += `<text class="cl-ax cl-dh-day${small ? ' small' : ''}" x="${L - 12}" y="${(mid + 5).toFixed(1)}" text-anchor="end">${esc(this.dhDayName(day.a, narrow))}</text>
+        <text class="cl-dh-tot${on ? '' : ' none'}${small ? ' small' : ''}" x="${L + W + 12}" y="${(mid + 5).toFixed(1)}">${on ? esc(narrow ? this.hm(on) : dur(on)) : '—'}</text>`;
+    });
+    return `<section class="cl-chart cl-dh" data-m="dh">
+      <h3>Dehumidifier <span class="cl-sub">${esc(d.label)} · on and off, a row a day · ${all.length} run${all.length === 1 ? '' : 's'}${keptWords} · tap a run</span></h3>
+      <svg viewBox="0 0 ${VB_W} ${H}" style="height:${H}px" preserveAspectRatio="none" role="img"
+           aria-label="When the dehumidifier was on, ${esc(d.label)}">${out}</svg>
+      <div class="cl-scrub" hidden></div>
+    </section>`;
+  },
+
+  /* 12 months: a bar a day, its height the hours on, stacked by what ran it. */
+  dhYear(d, narrow, keptWords, kept) {
+    const VB_W = this.vbw;
+    const VB_H = this.vbh;
+    const P = { l: 52, r: narrow ? 16 : 40, t: 18, b: 26 };
+    const days = this.dhDays(kept, d.to).reverse();
+    const shown = DH_KINDS.filter((k) => !this.isOff(`dh:${k.src}`)).map((k) => k.src);
+    const rows = days.map((day) => {
+      const key = this.dhKey(day.a);
+      const rec = (d.days || {})[key] || { s: {}, n: 0 };
+      const parts = shown.map((src) => ({ src, h: (rec.s?.[src] || 0) / 3600 })).filter((p) => p.h > 0);
+      return { ...day, key, n: rec.n || 0, parts, h: parts.reduce((s, p) => s + p.h, 0) };
+    });
+    this.dhShownDays = rows;
+    const top = Math.max(2, Math.ceil(Math.max(0, ...rows.map((r) => r.h)) / 2) * 2);
+    const x = (t) => P.l + ((t - d.from) / Math.max(1, d.to - d.from)) * (VB_W - P.l - P.r);
+    const y = (h) => P.t + (1 - h / top) * (VB_H - P.t - P.b);
+    const ticks = [0, 1, 2, 3, 4].map((i) => (top * i) / 4);
+    let out = ticks.map((v) => `<line class="cl-grid" x1="${P.l}" x2="${VB_W - P.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>
+      <text class="cl-ax" x="${P.l - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${Math.round(v * 10) / 10} h</text>`).join('');
+    out += this.timeTicks(d.from, d.to, 'day', narrow ? 3 : 6).map((t) => `
+      <text class="cl-ax" x="${x(t.t).toFixed(1)}" y="${VB_H - 8}" text-anchor="middle">${esc(t.label)}</text>`).join('');
+    const w = Math.max(1, (VB_W - P.l - P.r) / 365 - 1);
+    rows.forEach((r, i) => {
+      let h0 = 0;
+      for (const p of r.parts) {
+        out += `<rect class="cl-dh-bar" data-d="${i}" style="--c:${dhKind(p.src).colour}" x="${x(r.a).toFixed(1)}"
+          y="${y(h0 + p.h).toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1, y(h0) - y(h0 + p.h)).toFixed(1)}"/>`;
+        h0 += p.h;
+      }
+      // An empty day takes a tap too: "off all day" is an answer.
+      out += `<rect class="cl-dh-hit" data-d="${i}" x="${x(r.a).toFixed(1)}" y="${P.t}" width="${(w + 1).toFixed(1)}" height="${VB_H - P.t - P.b}"/>`;
+    });
+    return `<section class="cl-chart cl-dh" data-m="dh">
+      <h3>Dehumidifier <span class="cl-sub">${esc(d.label)} · hours on each day${keptWords} · tap a day</span></h3>
+      <svg viewBox="0 0 ${VB_W} ${VB_H}" style="height:${VB_H}px" preserveAspectRatio="none" role="img"
+           aria-label="Hours the dehumidifier was on each day, ${esc(d.label)}">${out}</svg>
+      <div class="cl-scrub" hidden></div>
+    </section>`;
+  },
+
+  dhKey(t) {
+    const d = new Date(t);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  hm(ms) {
+    const m = Math.round(ms / 60000);
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  },
+
+  /* A tap on a run (or a day, over 12 months): what it was. */
+  wireDh() {
+    const sec = this.chartsEl.querySelector('.cl-dh:not(.empty)');
+    if (!sec) return;
+    const svg = sec.querySelector('svg');
+    const out = sec.querySelector('.cl-scrub');
+    const t = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const day = (ms) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const row = (label, value, colour) => `<span class="cl-sc-row">${colour ? `<i style="--c:${colour}"></i>` : ''}${
+      esc(label)} <b>${esc(value)}</b></span>`;
+    svg.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest('[data-i], [data-d]');
+      sec.querySelectorAll('.picked').forEach((x) => x.classList.remove('picked'));
+      if (!el) { out.hidden = true; return; }
+      if (el.dataset.i != null) {
+        const r = (this.dhShown || [])[Number(el.dataset.i)];
+        if (!r) return;
+        sec.querySelectorAll(`[data-i="${el.dataset.i}"]`).forEach((x) => x.classList.add('picked'));
+        const k = dhKind(r.src);
+        const hum = r.h0 != null ? `${Math.round(r.h0)} % → ${r.h1 != null ? `${Math.round(r.h1)} %` : 'now'}` : '';
+        out.innerHTML = `<span class="cl-sc-when">${esc(day(r.a))} ${esc(t(r.a))}–${r.now ? 'now' : esc(t(r.b))}${
+          new Date(r.a).toDateString() !== new Date(r.b).toDateString() ? ` (${esc(day(r.b))})` : ''}</span>
+          ${row(k.label, dur(r.b - r.a), k.colour)}${hum ? row('Humidity', hum) : ''}${
+          r.now ? row('Still', 'running') : r.end ? row('Stopped', r.end) : ''}`;
+      } else {
+        const r = (this.dhShownDays || [])[Number(el.dataset.d)];
+        if (!r) return;
+        out.innerHTML = `<span class="cl-sc-when">${esc(day(r.a))}</span>${r.h > 0
+          ? r.parts.map((p) => row(dhKind(p.src).label, dur(p.h * 3600000), dhKind(p.src).colour)).join('')
+            + row('Runs started', String(r.n))
+          : row('Off', 'all day')}`;
+      }
+      out.hidden = false;
+    });
+  },
+
+  dhStats(d) {
+    const runs = this.dhRuns(d);
+    const tot = this.dhTotals();
+    const shown = DH_KINDS.filter((k) => !this.isOff(`dh:${k.src}`));
+    const year = d.range === 'year';
+    const on = shown.reduce((s, k) => s + (tot[k.src]?.ms || 0), 0);
+    const kept = Math.max(d.from, d.kept_from || d.from);
+    const span = Math.max(1, d.to - kept);
+    const nDays = Math.max(1, span / 86400000);
+    const cut = (r) => Math.min(d.to, r.b) - Math.max(d.from, r.a);
+    const longest = runs.reduce((a, r) => (!a || r.b - r.a > a.b - a.a ? r : a), null);
+    const n = year ? shown.reduce((s, k) => s + (tot[k.src]?.n || 0), 0) : runs.length;
+    const hum = runs.filter((r) => r.h0 != null && r.h1 != null);
+    const avg = (f) => hum.reduce((s, r) => s + f(r), 0) / hum.length;
+    const doc = this.ctx?.dehumidifier?.doc;
+    const going = doc?.run || doc?.other;
+    const nowWords = going
+      ? `On since ${new Date((going.since || 0) * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+      : 'Off';
+    const kinds = shown.filter((k) => tot[k.src]?.ms).map((k) => `<div><dt><i class="cl-swatch" style="--c:${k.colour}"></i> ${esc(k.label)}</dt>
+      <dd>${dur(tot[k.src].ms)} <small>${tot[k.src].n || 0} run${tot[k.src].n === 1 ? '' : 's'}</small></dd></div>`).join('');
+    return `<h3>💦 Dehumidifier <span class="cl-sub">${esc(d.label)}</span></h3>
+      <div class="cl-st">
+        <div class="cl-st-h"><b>${esc(nowWords)}</b></div>
+        <dl>
+          <div><dt>On over ${esc(d.label)}</dt><dd class="big">${on ? dur(on) : '—'}</dd></div>
+          <div><dt>Of the time${d.kept_from > d.from ? ' kept' : ''}</dt><dd class="big">${Math.round((on / span) * 100)} %</dd></div>
+          <div><dt>A day, on average</dt><dd>${on ? dur(on / nDays) : '—'}</dd></div>
+          <div><dt>Runs</dt><dd>${n}</dd></div>
+          ${year ? '' : `<div><dt>Longest run</dt><dd>${longest ? `${dur(longest.b - longest.a)} <small>${esc(this.stamp(longest.a, 'day'))}</small>` : '—'}</dd></div>
+          <div><dt>Average run</dt><dd>${runs.length ? dur(runs.reduce((s, r) => s + cut(r), 0) / runs.length) : '—'}</dd></div>`}
+        </dl>
+      </div>
+      ${hum.length ? `<div class="cl-st"><div class="cl-st-h"><b>What a run does</b><small>${hum.length} run${hum.length === 1 ? '' : 's'} with both ends read</small></div>
+        <dl>
+          <div><dt>Starts at</dt><dd>${Math.round(avg((r) => r.h0))} %</dd></div>
+          <div><dt>Ends at</dt><dd>${Math.round(avg((r) => r.h1))} %</dd></div>
+        </dl></div>` : ''}
+      ${kinds ? `<div class="cl-st"><div class="cl-st-h"><b>What ran it</b></div><dl class="cl-dh-kinds">${kinds}</dl></div>` : ''}`;
+  },
+
   /* Five or six times along the bottom, at whole hours or whole days rather
      than at even fractions of the range: "13:00" is a time, "12:47" is an
      arithmetic result. */
@@ -1209,7 +1582,7 @@ export default {
   wireScrub() {
     const d = this.shown();
     if (!d) return;
-    this.chartsEl.querySelectorAll('.cl-chart:not(.empty)').forEach((sec) => {
+    this.chartsEl.querySelectorAll('.cl-chart:not(.empty):not(.cl-dh)').forEach((sec) => {
       const m = METRICS.find((x) => x.key === sec.dataset.m);
       const svg = sec.querySelector('svg');
       const cross = sec.querySelector('.cl-cross');

@@ -321,6 +321,8 @@ export default {
       if (upc) { this.updAsk = null; this.renderSheet(); return; }
       const upk = e.target.closest('button[data-upd-ok]');
       if (upk) { this.updateOk(upk.dataset.updOk); return; }
+      const rs = e.target.closest('button[data-resume]');
+      if (rs) { this.resumeAct(rs.dataset.resume); return; }
       const o = e.target.closest('button[data-open]');
       if (o) { this.openLink(o.dataset.open); return; }
       const b = e.target.closest('button[data-do]');
@@ -445,6 +447,11 @@ export default {
         : `<button class="at-upd" data-upd-ok="${esc(run.service)}">OK</button>`)
         .replace('class="at-row', `class="at-row at-run-${run.state}`);
     }
+    // A pause left on (diffuser_paused, dehum_paused): ▶ Resume ends it there.
+    if (i.resume === 'diffuser' || i.resume === 'dehumidifier') {
+      return this.row(i, `<button class="at-upd" data-resume="${i.resume}"${this.resBusy === i.resume ? ' disabled' : ''}>▶ Resume</button>`
+        + hideIgnore);
+    }
     const u = i.update;
     if (!u || !u.can) return this.row(i, hideIgnore);
     const m = this.updMsg?.[u.service];
@@ -459,6 +466,21 @@ export default {
     }
     return this.row(m ? { ...i, detail: m.text } : i,
       `<button class="at-upd" data-upd="${esc(u.service)}">Update</button>` + hideIgnore);
+  },
+
+  async resumeAct(what) {
+    if (what !== 'diffuser' && what !== 'dehumidifier') return;
+    this.resBusy = what;
+    this.renderSheet();
+    try {
+      const r = await fetch(`/api/${what}/pause`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ on: false }) });
+      if (!r.ok) console.warn('resume failed', what, r.status);
+    } catch (e) {
+      console.warn('resume failed', what, e);
+    }
+    this.resBusy = null;
+    this.renderSheet();
   },
 
   async updateAct(service) {

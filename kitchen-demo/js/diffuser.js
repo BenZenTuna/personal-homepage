@@ -220,6 +220,11 @@ export default {
     // Off its HomeKit link: it does this for a minute at a time.
     if (!d.answering) return 'Not answering';
     if (this.onElsewhere()) return 'Misting (from the diffuser or its app)';
+    // Refused starts so far: the next start asks again, until `need` of them.
+    const dry = d.dry;
+    if (dry?.refusals && !d.water?.empty) {
+      return `Refused ${dry.refusals} of ${dry.need} — asks again${d.next ? ` at ${d.next.slice(11, 16)}` : ' at the next start'}`;
+    }
     const last = d.last;
     if (last && /by itself|out of water|did not answer/.test(last.why || '')
         && Date.now() / 1000 - last.at < 3 * 3600) {
@@ -566,6 +571,16 @@ export default {
           <span class="ls-set sheet-seg">${btns('button_runs', [true, false],
             (v) => (v ? `Runs ${s.run} min` : 'Keeps going'))}</span>
         </div>
+        <div class="ls-row">
+          <span class="ls-label">Empty after it refuses
+            <span class="db-hint">when the water runs out it stops by itself and then will not start. Each start
+              after that — the schedule's, motion's, welcome home's — asks it once more; this many refused in a row
+              and the tank is empty: the message goes, and nothing asks it again until it is filled. A start that
+              mists a minute wipes the count. While it is off the Wi-Fi nothing asks, so nothing counts.${
+              d.dry?.refusals && !w.empty ? ` <b>Refused ${d.dry.refusals} of ${d.dry.need} so far.</b>` : ''}</span></span>
+          <span class="ls-set sheet-seg">${btns('dry_after', ch.dry_after || [1, 2, 3, 4, 5],
+            (v) => (v === 1 ? 'Once' : `${v} times`))}</span>
+        </div>
         <div class="df-sched${s.schedule ? '' : ' nt-off'}">
           <div class="ls-row">
             <span class="ls-label">How often
@@ -684,7 +699,7 @@ export default {
         <div class="ls-row">
           <span class="ls-label">On Telegram
             <span class="db-hint">one message per tank, when the diffuser itself shows it is empty: it stops by
-              itself and then refuses to start again. That stop is also the tank's calibration run, and nothing
+              itself and then refuses to start again (Empty after it refuses, above). That stop is also the tank's calibration run, and nothing
               starts it by itself until it is filled.${d.reminder ? ` Last: ${hm(d.reminder.at)}${d.reminder.test ? ' (test)' : ''} — ${
               d.reminder.sent?.length ? `sent to ${esc(d.reminder.sent.join(', '))}`
                 : d.reminder.by_alert ? 'sent as the alert on Telegram' : 'sent to nobody'}${

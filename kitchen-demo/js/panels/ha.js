@@ -911,6 +911,9 @@ export default {
       // whichever of them their rooms have.
       this.buildTiles(this.tiles, onLights);
       this.buildTiles(this.more, onMore);
+      // The Zigbee switches card (zswitch.js, 2026-11-14): the last cell of
+      // Lights 2's grid, a light automation among the lights.
+      this.ctx.zswitch?.mount(this.more?.querySelector('.tiles'));
     }
     this.paint();
     if (this.open) this.syncSheet();
@@ -1062,10 +1065,14 @@ export default {
     pz.classList.toggle('on', own);
     pz.classList.toggle('held', held);
     pz.setAttribute('aria-pressed', String(!!pb));
-    const word = own ? 'Paused' : !held ? 'Pause' : pb === '__house__' ? 'House' : 'Room';
+    // A pause that ends by itself (from the room's switch) says when, as the
+    // word under ⏸: "23:40".
+    const until = own ? sched.pausedUntil?.(item.entity) : null;
+    const word = until ? String(until.until).slice(11, 16)
+      : own ? 'Paused' : !held ? 'Pause' : pb === '__house__' ? 'House' : 'Room';
     const small = pz.querySelector('small');
     if (small.textContent !== word) small.textContent = word;
-    pz.title = own ? 'the evening ladder is paused here — tap to resume it'
+    pz.title = own ? `the evening ladder is paused here${sched.untilText?.(item.entity) || ''} — tap to resume it`
       : held ? `paused with ${sched.roomLabel(pb)} — resume it there`
       : 'pause the evening ladder in this room';
   },
@@ -1921,7 +1928,7 @@ export default {
     const c = this.ctx;
     /* `pause`: the light tiles' ⏸ toggle (2026-10-14, the school alert's —
        "as light automations has"), between the card's switch and its gear. */
-    const card = (cls, emoji, name, btn = true, pause = false, extra = '') => `
+    const card = (cls, emoji, name, btn = true, pause = false, extra = '', before = '') => `
       <div class="phone-card au-card ${cls}" hidden>
         <span class="phone-emoji" aria-hidden="true">${emoji}</span>
         <span class="phone-txt">
@@ -1929,6 +1936,7 @@ export default {
           <span class="phone-sub au-sub"></span>
           <span class="phone-status au-status" aria-live="polite"></span>
         </span>
+        ${before}
         ${pause ? `<button class="tile-pz au-pz" hidden aria-pressed="false"
                   aria-label="${this.esc(name)}: pause"><b>⏸</b><small>Pause</small></button>` : ''}
         ${btn ? '<button class="phone-ring ch-btn au-btn">Off</button>' : ''}
@@ -1945,6 +1953,16 @@ export default {
       c.chime && card('ch-card', '🕰️', 'Clock sounds'),
       c.disco && card('dc-card', '🪩', 'Disco'),
       c.babo && card('bb-card', '🪟', 'Babo Alarm'),
+      /* The dehumidifier in the Storage (2026-11-13): two columns, beside Babo —
+         👕 laundry, 1/2/4 h and Stop on the card, the automatic's On/Off and
+         ⏸, the rest behind its gear (dehumidifier.js). */
+      c.dehumidifier && card('dh-card', '💧', 'Dehumidifier', true, true, '', `
+        <span class="dh-acts">
+          <button class="phone-ring dh-laundry" aria-label="dry laundry until it is dry">👕<small>Laundry</small></button>
+          ${[1, 2, 4].map((h) => `
+          <button class="phone-ring dh-run" data-h="${h}" aria-label="run it ${h} hours">${h}<small>h</small></button>`).join('')}
+          <button class="phone-ring stop dh-stop" hidden aria-label="switch the dehumidifier off">Stop</button>
+        </span>`),
       /* The aroma diffuser (2026-10-14): two columns wide, for its three
          times and Stop — the run is the card's job, the rest is its gear. */
       c.diffuser && card('df-card', '🌸', 'Diffuser', false, false, `
@@ -2061,6 +2079,17 @@ export default {
     if (sn) { wire('sn-card', null, () => sn.open()); sn.onDoc(paint); }
     const pt = c.pctemps;
     if (pt) { wire('pt-card', null, () => pt.open()); pt.onDoc(paint); }
+    const dh = c.dehumidifier;
+    if (dh) {
+      wire('dh-card', () => dh.toggle(), () => dh.open());
+      const el = this.auto.querySelector('.dh-card');
+      el.querySelector('.phone-txt').onclick = () => dh.open();
+      el.querySelector('.dh-laundry').onclick = () => dh.laundry();
+      el.querySelectorAll('.dh-run').forEach((b) => { b.onclick = () => dh.run(Number(b.dataset.h)); });
+      el.querySelector('.dh-stop').onclick = () => dh.stop();
+      el.querySelector('.au-pz').onclick = () => dh.cardPause();
+      dh.onDoc(paint);
+    }
     const df = c.diffuser;
     if (df) {
       wire('df-card', null, () => df.open());
@@ -2213,6 +2242,39 @@ export default {
         flags: { 'bb-alarm': alarm, 'bb-open': open === true, 'bb-shut': open === false },
         label: alarm ? 'Stop the alarm' : sw('Babo Alarm', on),
         sub: bb.doc ? bb.summary() : '', status: bb.doc ? bb.status() : '' });
+    }
+    const dh = c.dehumidifier;
+    if (dh) {
+      const show = !!dh.doc;
+      const on = show && !!dh.settings().auto;
+      this.paintCard('dh-card', { show, on, label: sw('Dehumidifier automatic', on),
+        flags: { 'dh-going': show && dh.running(), 'dh-full': show && dh.tankFull(),
+          'dh-paused': show && !!dh.pausedFor() },
+        sub: show ? dh.summary() : '', status: show ? dh.status() : '' });
+      const el = this.auto.querySelector('.dh-card');
+      if (el && show) {
+        const ok = dh.configured() && dh.doc.answering && !dh.busy;
+        const going = dh.running();
+        const stop = el.querySelector('.dh-stop');
+        if (stop.hidden === going) stop.hidden = !going;
+        el.querySelectorAll('.dh-run').forEach((b) => {
+          b.hidden = going;
+          b.disabled = !ok || dh.tankFull();
+        });
+        stop.disabled = !ok;
+        const lb = el.querySelector('.dh-laundry');
+        lb.classList.toggle('on', dh.laundryOn());
+        lb.disabled = !ok || (dh.tankFull() && !dh.laundryOn());
+        lb.title = dh.laundryOn() ? 'drying laundry — tap to end it' : 'dry laundry: runs until it is dry';
+        const pz = el.querySelector('.au-pz');
+        const p = dh.pausedFor();
+        pz.hidden = false;
+        pz.classList.toggle('on', !!p);
+        pz.setAttribute('aria-pressed', String(!!p));
+        pz.querySelector('b').textContent = p ? '▶' : '⏸';
+        pz.querySelector('small').textContent = p ? 'Resume' : 'Pause';
+        pz.disabled = !dh.configured() || dh.busy;
+      }
     }
     const df = c.diffuser;
     if (df) {

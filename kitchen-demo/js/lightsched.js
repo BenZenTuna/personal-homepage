@@ -384,6 +384,18 @@ export default {
     return (this.doc?.paused || {})[entity] || null;
   },
 
+  /* A pause that ends by itself — one from the room's own wall switch
+     (zswitch.py): {until, by}, or null for one that stays until resumed. */
+  pausedUntil(entity) {
+    return (this.doc?.pause_until || {})[entity] || null;
+  },
+
+  /* " until 23:40 (Kitchen switch)", or '' for a pause with no end. */
+  untilText(entity) {
+    const u = this.pausedUntil(entity);
+    return u ? ` until ${this.sinceText(u.until)}${u.by ? ` (${u.by})` : ''}` : '';
+  },
+
   /* The whole house paused (the Whole house row's ⏸, or Paused on this
      sheet): every room is left to its switch, whatever the ladder says. The
      server's now.__house__.paused_by says so; its paused list too. */
@@ -401,6 +413,7 @@ export default {
     const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
     const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const ago = Math.round((day(new Date()) - day(t)) / 864e5);
+    if (ago === -1) return `tomorrow ${hm}`;
     if (ago <= 0) return hm;
     if (ago === 1) return `yesterday ${hm}`;
     if (ago < 7) return `${DAY_NAMES[(t.getDay() + 6) % 7]} ${hm}`;
@@ -450,7 +463,7 @@ export default {
     const pb = this.pausedBy(entity);
     if (!pb) return '';
     const since = this.sinceText(this.pausedSince(pb));
-    return `paused${pb === entity ? '' : ` with ${this.roomLabel(pb)}`}${since ? ` since ${since}` : ''}`;
+    return `paused${pb === entity ? '' : ` with ${this.roomLabel(pb)}`}${since ? ` since ${since}` : ''}${this.untilText(pb)}`;
   },
 
   /* One line for the room's own settings sheet: is it following the house,
@@ -779,8 +792,9 @@ export default {
              again. Amber when on, so it never reads as a mode. -->
         <div class="ls-row">
           <span class="ls-label">${pb ? `<span class="lx-paused-line">${pOwn
-            ? `Paused since ${esc(pSince)} — the switch and Home Assistant decide this
-               ${what}'s light. Resume puts it back on its ladder.`
+            ? `Paused since ${esc(pSince)}${esc(this.untilText(pb))} — the switch and Home Assistant decide this
+               ${what}'s light. ${this.pausedUntil(pb) ? 'Then it goes back on its ladder by itself; Resume does it now.'
+                 : 'Resume puts it back on its ladder.'}`
             : `Paused with ${pWho} since ${esc(pSince)} — the switch and Home Assistant
                decide this ${what}'s light too. It comes off with ${pWho}: resume
                ${pWho} to put it back on its ladder.`}${

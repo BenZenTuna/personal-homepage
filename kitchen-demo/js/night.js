@@ -342,7 +342,37 @@ const DAY_DEFAULTS = {
   wx_art: false, wx_motion: 1, wx_warn: 2, wx_warn_blink: true, moon: true,
   show_clock: true, show_date: true, show_temp: true, show_forecast: true, show_timer: true,
   show_sun: true, show_countdown: true, look: 1, look_auto: false, look_days: 1, look_pool: [1, 2, 3, 4],
+  place: 'middle', dim_level: 2, ink: 'amber', tree_draw: 'full',
 };
+
+/* The words' colours (2026-11-15: "an option which colours will take
+   the texts in the dimmed screen"): [key, name, the words, the paler shade
+   for the moon, the sun and a timer]. Amber is the clock's from the start;
+   red is the gentlest on eyes used to the dark. night.py INKS keeps the keys. */
+export const INKS = [
+  ['amber', 'Amber', '#a26a38', '#d2a56f'],
+  ['gold', 'Gold', '#b48a3c', '#e2c27c'],
+  ['warm', 'Warm white', '#c4b398', '#ebdfc9'],
+  ['white', 'White', '#c9ced4', '#f1f4f7'],
+  ['red', 'Red', '#a8452f', '#d47a62'],
+  ['rose', 'Rose', '#b36d80', '#e3a9b8'],
+  ['green', 'Green', '#6f9a6c', '#a9d0a2'],
+  ['blue', 'Blue', '#6f90b4', '#a8c6e6'],
+];
+/* How dim the look behind the words is (`dim_level`, the same day: "how
+   much it can be dimmed … or even original colour can be used"): the black
+   veil over the picture, and whether the look's own darkening stays. 2 is
+   the screen as it always was. */
+export const DIMS = [
+  { name: 'Original colours', shade: 0, own: false },
+  { name: 'Slight', shade: 0.18, own: false },
+  { name: 'Medium', shade: 0, own: true },
+  { name: 'Darker', shade: 0.3, own: true },
+  { name: 'Darkest', shade: 0.5, own: true },
+];
+export const inkOf = (s) => INKS.find(([k]) => k === s?.ink) || INKS[0];
+export const dimOf = (s) => DIMS[Number.isInteger(Number(s?.dim_level)) && DIMS[Number(s.dim_level)]
+  ? Number(s.dim_level) : 2];
 // The build stamp this file was loaded with, for the drawing it loads itself.
 const V = new URL(import.meta.url).search;
 
@@ -350,7 +380,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hh = (h) => `${String(h).padStart(2, '0')}:00`;
 /* The looks there are, and the one chosen by hand (anything else is 1). */
-export const LOOKS = [1, 2, 3, 4];
+export const LOOKS = [1, 2, 3, 4, 5, 6];
 const chosenLook = (s) => (LOOKS.includes(Number(s?.look)) ? Number(s.look) : 1);
 
 /* The day number of a local date: the same for every screen in the house. */
@@ -378,7 +408,8 @@ export function lookToday(s, now = Date.now()) {
 }
 
 const lookOf = (s) => lookToday(s).look;
-const LOOK_NAMES = ['', 'Weather drawings', 'Illustrations', 'A family photo', 'Living landscape'];
+const LOOK_NAMES = ['', 'Weather drawings', 'Illustrations', 'A family photo', 'Living landscape', 'Calm pond',
+  'Butterfly tree'];
 const hm = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 const spanText = ([f, t]) => (f === t ? 'all day' : `${hh(f)}–${hh(t)}`);
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
@@ -429,6 +460,13 @@ export default {
     // Look 4, the living landscape (dimscape.js), loaded the first time it is wanted.
     this.scapeMod = null;
     this.scape = null;
+    // Look 5, the calm pond (pond.js), the same way.
+    this.pondMod = null;
+    this.pond = null;
+    // Look 6, the butterfly tree (tree.js), the same way.
+    this.treeMod = null;
+    this.tree = null;
+    this.styleKey = '';
     import(`./wxart.js${V}`).then((m) => {
       this.wx = m;
       if (this.sheetIsOpen()) this.renderSheet();
@@ -645,6 +683,8 @@ export default {
     else {
       this.art?.stop();
       this.scape?.stop();
+      this.pond?.stop();
+      this.tree?.stop();
     }
   },
 
@@ -659,6 +699,7 @@ export default {
       <div class="nl-illu" hidden aria-hidden="true"><div class="nl-pan">
         <img alt="" decoding="async" draggable="false"><img alt="" decoding="async" draggable="false">
       </div></div>
+      <div class="nt-shade" aria-hidden="true"></div>
       <div class="nt-moon" hidden></div>
       <div class="nt-sun" hidden></div>
       <div class="nt-warn"></div>
@@ -678,9 +719,29 @@ export default {
     this.illu = this.overlay.querySelector('.nl-illu');
   },
 
+  /* Where the words sit, how dim the look behind them is, and their colour
+     (2026-11-15). The colour is set on the page, not only the overlay: the
+     sheet's small pictures of the looks wear it too. */
+  applyStyle(s) {
+    const [ink, , col, hi] = inkOf(s);
+    const dim = dimOf(s);
+    const key = `${s.place}|${DIMS.indexOf(dim)}|${ink}`;
+    if (key === this.styleKey) return;
+    this.styleKey = key;
+    const o = this.overlay;
+    o.classList.toggle('nt-top', s.place === 'top');
+    o.classList.toggle('nt-bright', !dim.own);
+    o.dataset.dim = String(DIMS.indexOf(dim));
+    o.style.setProperty('--nt-shade', String(dim.shade));
+    const root = document.documentElement.style;
+    root.setProperty('--nt-ink', col);
+    root.setProperty('--nt-hi', hi);
+  },
+
   paint(now) {
     const d = new Date(now);
     const s = this.settings();
+    this.applyStyle(s);
     const q = (sel) => this.overlay.querySelector(sel);
     // Each part as the sheet says: one left out is hidden, and takes no room.
     const part = (sel, on) => {
@@ -734,6 +795,36 @@ export default {
     const max = side ? `${Math.max(WARN_MIN_W, Math.round(o.offsetWidth - 2 * (side * k + CORNER_GAP)))}px` : '';
     const warn = o.querySelector('.nt-warn');
     if (warn.style.maxWidth !== max) warn.style.maxWidth = max;
+  },
+
+  /* Where the words are, in the overlay's own pixels: the centred column
+     (the warnings down to a timer) as one box, and the countdown's line as
+     another — for the pond and the tree, which darken a little under them
+     and keep their butterflies out of their way. */
+  textBoxes() {
+    const o = this.overlay;
+    const out = [];
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const sel of ['.nt-warn', '.nt-clock', '.nt-fc', '.nt-date', '.nt-wx', '.nt-timer']) {
+      const el = o.querySelector(sel);
+      if (el.hidden || !el.offsetHeight || !el.offsetWidth) continue;
+      x0 = Math.min(x0, el.offsetLeft);
+      y0 = Math.min(y0, el.offsetTop);
+      x1 = Math.max(x1, el.offsetLeft + el.offsetWidth);
+      y1 = Math.max(y1, el.offsetTop + el.offsetHeight);
+    }
+    if (Number.isFinite(x0)) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    const cd = o.querySelector('.nt-cd');
+    const first = cd.firstElementChild;
+    const last = cd.lastElementChild;
+    if (first && cd.offsetHeight) {
+      out.push({ x: cd.offsetLeft + first.offsetLeft, y: cd.offsetTop,
+        w: last.offsetLeft + last.offsetWidth - first.offsetLeft, h: cd.offsetHeight });
+    }
+    return out;
   },
 
   /* Where the centred column — the warnings down to a timer — ends, in the
@@ -954,10 +1045,27 @@ export default {
     // Look 4: the living landscape draws the weather itself, sky and all.
     if (lookOf(s) === 4) {
       this.art?.stop();
+      this.pond?.stop();
+      this.tree?.stop();
       this.paintScape(now, hour, s);
       return;
     }
     this.scape?.stop();
+    // Look 5: the calm pond, rain and snow on its water by the hour's weather.
+    if (lookOf(s) === 5) {
+      this.art?.stop();
+      this.tree?.stop();
+      this.paintPond(now, hour, s);
+      return;
+    }
+    this.pond?.stop();
+    // Look 6: the butterfly tree, in the hour's wind, rain and snow.
+    if (lookOf(s) === 6) {
+      this.art?.stop();
+      this.paintTree(now, hour, s);
+      return;
+    }
+    this.tree?.stop();
     // Show me the clock is the clock as chosen: the pictures only if they are on.
     let sc = own || s.wx_art ? hour : null;
     if (pic) sc = overScene(sc);
@@ -975,7 +1083,8 @@ export default {
       this.illu.after(this.art.cv);
     }
     const motion = Number(s.wx_motion);
-    this.art.set(sc, Number.isInteger(motion) ? motion : DAY_DEFAULTS.wx_motion);
+    // The drawing takes the words' colour when it is built: a new colour builds it again.
+    this.art.set({ ...sc, ink: inkOf(s)[0] }, Number.isInteger(motion) ? motion : DAY_DEFAULTS.wx_motion);
     this.art.start();
     // The countdown's line is the screen's width: its holes are its words,
     // or a downpour would stop short of the whole bottom edge.
@@ -1018,6 +1127,71 @@ export default {
     const motion = Number(s.wx_motion);
     this.scape.set(sc, env, Number.isInteger(motion) ? motion : DAY_DEFAULTS.wx_motion);
     this.scape.start();
+    this.overlay.classList.add('nl-pic');
+  },
+
+  /* ------------------------------------------- look 5: the calm pond -- */
+
+  /* The pond (pond.js; Alex, 2026-11-13: a relaxing illustration of random
+     movement, as the research on relaxing visuals has it): koi wandering
+     under lily pads, leaves drifting, rings on the water, the branches'
+     reflection swaying — by the hour's weather (Show me's too) and the day's
+     sunrise and sunset. Loaded the first time it is wanted. */
+  paintPond(now, sc, s) {
+    if (!this.pondMod) {
+      if (!this.pondLoading) {
+        this.pondLoading = true;
+        import(`./pond.js${V}`).then((m) => {
+          this.pondMod = m;
+          if (this.covered) this.paint(Date.now());
+        }).catch((e) => console.error('pond.js did not load: look 5 shows the clock alone', e));
+      }
+      return;
+    }
+    if (!this.pond) this.pond = new this.pondMod.Pond(this.overlay);
+    const w = this.hooks.weather;
+    const d0 = new Date(now);
+    const iso = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, '0')}-${String(d0.getDate()).padStart(2, '0')}`;
+    const day = (w?.data?.daily || []).find((d) => d?.d === iso) || (w?.data?.daily || [])[0];
+    const ms = (t) => (t == null || !w?.ms ? NaN : w.ms(t));
+    const env = { now, rise: ms(day?.sunrise), set: ms(day?.sunset), seed: this.pondMod.daySeed(now),
+      top: s.place === 'top', boxes: this.textBoxes() };
+    const motion = Number(s.wx_motion);
+    this.pond.set(sc, env, Number.isInteger(motion) ? motion : DAY_DEFAULTS.wx_motion);
+    this.pond.start();
+    this.overlay.classList.add('nl-pic');
+  },
+
+  /* ------------------------------------------ look 6: the butterfly tree -- */
+
+  /* The tree (tree.js; 2026-11-15: "a tree in the middle of screen,
+     which will have colourful leaves … even colourful butterflies as the
+     tree leaves, and the tree and its leaves are moving with the
+     unpredicted wind"): the pond's twin — by the hour's weather (its wind
+     stronger gusts), the day's sunrise and sunset, and where the words sit,
+     so the canopy darkens a little behind them. Loaded the first time. */
+  paintTree(now, sc, s) {
+    if (!this.treeMod) {
+      if (!this.treeLoading) {
+        this.treeLoading = true;
+        import(`./tree.js${V}`).then((m) => {
+          this.treeMod = m;
+          if (this.covered) this.paint(Date.now());
+        }).catch((e) => console.error('tree.js did not load: look 6 shows the clock alone', e));
+      }
+      return;
+    }
+    if (!this.tree) this.tree = new this.treeMod.Tree(this.overlay);
+    const w = this.hooks.weather;
+    const d0 = new Date(now);
+    const iso = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, '0')}-${String(d0.getDate()).padStart(2, '0')}`;
+    const day = (w?.data?.daily || []).find((d) => d?.d === iso) || (w?.data?.daily || [])[0];
+    const ms = (t) => (t == null || !w?.ms ? NaN : w.ms(t));
+    const env = { now, rise: ms(day?.sunrise), set: ms(day?.sunset), seed: this.treeMod.daySeed(now),
+      top: s.place === 'top', boxes: this.textBoxes(), light: s.tree_draw === 'light' };
+    const motion = Number(s.wx_motion);
+    this.tree.set(sc, env, Number.isInteger(motion) ? motion : DAY_DEFAULTS.wx_motion);
+    this.tree.start();
     this.overlay.classList.add('nl-pic');
   },
 
@@ -1479,6 +1653,8 @@ export default {
         (s.look_pool || []).join(', ')}`,
       parts: shown === SHOW_PARTS.length ? `${whenOn}all ${shown} shown`
         : shown ? `${whenOn}${shown} of ${SHOW_PARTS.length} shown` : 'nothing shown',
+      style: `${s.place === 'top' ? 'top' : 'middle'} · ${dimOf(s).name.toLowerCase()} · ${
+        inkOf(s)[1].toLowerCase()}`,
       weather: s.wx_art ? `${on}${MOTION_WORDS[Number(s.wx_motion)] || ''}` : 'off',
       warn: Number(s.wx_warn)
         ? `${whenOn}${WARN_LEVELS[Number(s.wx_warn)] || ''}${s.wx_warn_blink ? ' · blinking' : ''}` : 'off',
@@ -1651,6 +1827,33 @@ export default {
               <rect x="100" y="66" width="16" height="10" fill="#4a1d17"/><path d="M98 66 L108 59 L118 66Z" fill="#0d0d10"/>
               <rect x="103" y="69" width="3" height="3" fill="#ffc278"/></svg>`, '4 · Living landscape',
             'drawn and animated live: lake, forest and cottage under the sky and the weather outside — rain on the water, snow, fog, wind in the trees, stars, northern lights')}
+          ${pick(5, `<svg class="nl-scape" viewBox="0 0 160 90" aria-hidden="true">
+              <defs><radialGradient id="nlpd" cx="0.5" cy="0.5" r="0.7"><stop offset="0" stop-color="#1d4f4a"/>
+              <stop offset="1" stop-color="#06171a"/></radialGradient></defs>
+              <rect width="160" height="90" fill="url(#nlpd)"/>
+              <path d="M-4 -4 Q20 14 34 30 M14 8 Q30 6 44 12 M22 18 Q24 30 18 40" stroke="#000" stroke-opacity="0.35"
+                stroke-width="2" fill="none" stroke-linecap="round"/>
+              <path d="M30 70 Q42 62 56 66 L50 70 L56 74 Q42 78 30 70Z" fill="#e2d9cc"/>
+              <circle cx="38" cy="69" r="3" fill="#bf4a2e"/><circle cx="46" cy="70" r="2.4" fill="#bf4a2e"/>
+              <path d="M112 24 Q124 30 136 26 L132 31 L137 35 Q124 34 112 24Z" fill="#cf7431"/>
+              <path d="M8 60 A12 12 0 1 1 18 72 L14 62Z" fill="#2d5530"/>
+              <path d="M140 74 A10 10 0 1 1 150 82 L146 74Z" fill="#2d5530"/><circle cx="141" cy="70" r="3.4" fill="#e6dfd6"/>
+              <circle cx="96" cy="58" r="8" fill="none" stroke="#d2e6eb" stroke-opacity="0.45"/>
+              <circle cx="96" cy="58" r="4.5" fill="none" stroke="#d2e6eb" stroke-opacity="0.3"/>
+              <path d="M78 14 Q84 10 90 14 Q84 18 78 14Z" fill="#c98a2e"/></svg>`, '5 · Calm pond',
+            'koi wandering slowly under lily pads, leaves drifting, rings on the water and the branches’ reflection swaying — never the same twice; rain and snow fall on it as they do outside')}
+          ${pick(6, `<svg class="nl-scape" viewBox="0 0 160 90" aria-hidden="true">
+              <rect width="160" height="90" fill="#191513"/>
+              <path d="M74 90 Q77 70 76 56 Q70 46 60 40 M76 56 Q84 44 98 38 M77 64 Q88 58 104 52" stroke="#2a2420"
+                stroke-width="5" fill="none" stroke-linecap="round"/>
+              ${[[48, 30, '#d8432f'], [60, 20, '#e8792c'], [74, 16, '#f0b23a'], [88, 18, '#e8662a'], [102, 24, '#f3c84a'],
+                [114, 34, '#e98a35'], [40, 44, '#b04a8a'], [54, 40, '#d44c6e'], [68, 32, '#e05a3a'], [84, 30, '#f2a03c'],
+                [98, 40, '#3f8fd0'], [112, 48, '#2f6fb8'], [46, 56, '#7d4cb0'], [60, 52, '#c4508c'], [104, 58, '#2a9a9a'],
+                [120, 44, '#4aa0d8'], [30, 36, '#e3a03a'], [128, 22, '#e8c04a'], [20, 62, '#5b6fd0'], [140, 64, '#3aa7c4'],
+                [70, 84, '#2c6fb0'], [84, 86, '#3a8fd0'], [60, 87, '#5b5fc0']]
+                .map(([x, y, c]) => `<path transform="translate(${x} ${y})" d="M0 0 C-5 -6 -9 -2 -6 2 C-8 5 -3 6 0 1 C3 6 8 5 6 2 C9 -2 5 -6 0 0Z" fill="${c}"/>`).join('')}</svg>`,
+            '6 · Butterfly tree',
+            'a tree full of colourful butterflies for leaves, swaying in a wind that never blows the same way twice — gusts lift a few off to flutter round and settle again; rain and snow as they are outside')}
           <span class="ls-set"><button class="ls-btn nt-look" data-show="clock">Show me</button></span>
         </div>
         ${now ? `<span class="ls-label"><span class="db-hint">Now it is ${esc(now)}.</span></span>` : ''}
@@ -1691,6 +1894,7 @@ export default {
     if (!this.sheetIsOpen() || !this.data) return;
     const kit = this.ctx.sheetkit;
     const s = this.settings();
+    this.applyStyle(s);      // the small pictures' clock in the words' colour
     const nightOn = !!(s.enabled && s.night);
     const pick = (v, want) => (v === want ? ' on' : '');
     const onOff = [[true, 'On'], [false, 'Off']];
@@ -1773,9 +1977,39 @@ export default {
         ${row('Then the clock for', 'each time the clock covers them', 'cycle_dim_min',
           [5, 10, 15, 20, 30, 45, 60].map((m) => [m, `${m} min`]), turnsOff)}`, { note: n.cycles })}
 
-      ${kit.sec('The look', this.lookRow(s), { note: n.look })}
+      ${kit.sec('The look', `${this.lookRow(s)}
+        ${row('Butterfly tree', `how the sixth look is drawn. Full: all of it thirty times a second, as it
+          was. Lighter: the tree and the butterflies resting on it ten times a second, only those in the
+          air, the rain and the snow thirty — about a third of the work for the computer, nearly the same
+          to look at.`, 'tree_draw', [['full', 'Full'], ['light', 'Lighter']])}`, { note: n.look })}
 
       ${kit.sec('Change the look by itself', this.lookAutoRow(s), { note: n.lookAuto })}
+
+      ${kit.sec('Place, dimming and colour', `
+        ${row('Where the clock sits', `the time with the forecast, the date and the temperature under it:
+          in the middle of the screen, or at the top, between the sun's and the moon's corners, with the
+          picture open below. The countdown stays at the very bottom.`, 'place',
+          [['middle', 'Middle'], ['top', 'Top']])}
+        ${row('How dim', `how much the look behind the words is darkened. Original colours: as it is
+          drawn or painted, not darkened at all. Medium is how it always was; Darker and Darkest for a
+          dark kitchen. The words keep their own colour, chosen below; at night the screen's own light
+          is turned down as well (Screen at night, above).`, 'dim_level',
+          DIMS.map((d, i) => [i, d.name]))}
+        <div class="ls-row">
+          <span class="ls-label">Colour of the words<span class="db-hint">the time, the date, the
+            forecast, the moon, sunrise and sunset and the countdown — and the weather drawings of the
+            first look. Amber is the clock's from the start; red is the gentlest on eyes used to the
+            dark.</span></span>
+          <span class="ls-set nt-inks">${INKS.map(([k, name, col]) => `<button class="ls-btn${
+            inkOf(s)[0] === k ? ' on' : ''}" data-put="ink" data-v="${esc(JSON.stringify(k))}"
+            aria-pressed="${inkOf(s)[0] === k}"><span class="nt-ink-s" style="color:${col}">12:30</span>${
+            esc(name)}</button>`).join('')}</span>
+        </div>
+        <div class="ls-row">
+          <span class="ls-label">Show me the clock<span class="db-hint">on this screen for a minute, as
+            chosen here; a tap ends it and brings this sheet back.</span></span>
+          <span class="ls-set"><button class="ls-btn nt-look" data-show="clock">Show me</button></span>
+        </div>`, { note: n.style })}
 
       ${kit.sec('What the dim clock shows', `
         ${row('Sunrise and sunset', `in the top left corner: today's sunrise and sunset ${esc(this.sunWhere())}

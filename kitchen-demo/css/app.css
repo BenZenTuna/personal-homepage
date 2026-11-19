@@ -2081,6 +2081,15 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
 .au-card .tile-pz.au-pz.on { border-color: var(--photos); }
 .au-card.au-paused { border-color: var(--photos); box-shadow: inset 0 0 0 2px var(--photos); }
 .au-card.au-paused .phone-status { color: var(--photos); font-weight: 600; }
+/* The Zigbee switches card (zswitch.js), the last cell of Lights 2's grid: as
+   tall as the rooms beside it, and amber-lined while a room is paused from
+   its switch — the same amber as a paused routine. */
+.tiles > .zs-card { min-height: 0; height: 100%; }
+/* A room tile's height to spare, so its two lines may wrap where every other
+   card's are kept to one. */
+.tiles > .zs-card .phone-sub, .tiles > .zs-card .phone-status { white-space: normal; }
+.au-card.zs-paused { border-color: var(--photos); }
+.au-card.zs-paused .phone-status { color: var(--photos); font-weight: 600; }
 .panel.expanded .au-card .tile-pz.au-pz { width: 60px; min-height: 64px; }
 .panel.expanded .au-card:is(.sc-card, .pb-card) .au-btn { min-width: 90px; }
 .au-card.au-tap .phone-txt { cursor: pointer; align-self: stretch; justify-content: center; }
@@ -2112,13 +2121,35 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
    Over the sheets and the panels (z 85), under the bird box's alarm (90) and
    the meal-time dimmer (100), which are things somebody asked for. A tap
    anywhere takes it away. */
+/* The words' colour is the sheet's (2026-11-15, `ink`; night.js INKS sets
+   these two on the page): --nt-ink for the words, --nt-hi its paler shade
+   for the lit moon, the sun and a running timer. Amber, the colour the
+   clock always had, until another is chosen. */
+:root { --nt-ink: #a26a38; --nt-hi: #d2a56f; }
 #nt-overlay {
   position: fixed; inset: 0; z-index: 85;
   display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
-  background: #000; color: #a26a38;
+  background: #000; color: var(--nt-ink);
   user-select: none; cursor: default; touch-action: manipulation;
 }
 #nt-overlay.open { display: flex; }
+/* "Where the clock sits: Top" (2026-11-15: "move the clock, date and
+   weather forecast to top upper"): the column from the top edge, between
+   the sun's and the moon's corners, the picture open under it. */
+#nt-overlay.nt-top { justify-content: flex-start; padding-top: 26px; }
+/* How dim the look behind the words is (`dim_level`): a black veil over
+   the picture, under the words — none at Original colours and as it always
+   was, 0.18 Slight, 0.3 Darker, 0.5 Darkest; and at Original and Slight
+   (.nt-bright) the looks' own darkening is left off too: the pictures'
+   brightness, the pond's and the tree's see-through canvas, the pool
+   behind the middle (Slight keeps half of it, for the words). */
+#nt-overlay > .nt-shade {
+  position: absolute; inset: 0; background: #000; opacity: var(--nt-shade, 0); pointer-events: none;
+}
+#nt-overlay.nt-bright .nl-pan > img[data-time] { filter: none; }
+#nt-overlay.nt-bright > .nt-scape { opacity: 1 !important; }
+#nt-overlay.nt-bright .nl-illu::after { opacity: 0.5; }
+#nt-overlay.nt-bright[data-dim="0"] .nl-illu::after { opacity: 0; }
 .nt-clock {
   font-size: 300px; font-weight: 500; line-height: 0.9; letter-spacing: -10px;
   font-variant-numeric: tabular-nums; opacity: 0.85;
@@ -2126,7 +2157,8 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
 /* As plain as the clock: at 0.55 the date and the temperature were there only
    for whoever already knew what they said (Alex, 2026-10-01). */
 .nt-date, .nt-wx { font-size: 42px; opacity: 0.85; }
-.nt-timer { margin-top: 18px; font-size: 64px; font-variant-numeric: tabular-nums; color: #c2854a; }
+.nt-timer { margin-top: 18px; font-size: 64px; font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--nt-ink) 55%, var(--nt-hi)); }
 .nt-timer[hidden], .nt-wx:empty { display: none; }
 /* A day ahead in one line under the time (night.js paintForecast): now, then
    every second hour. Every glyph in the clock's one colour, the cloud a
@@ -2180,9 +2212,9 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
 }
 #nt-overlay > .nt-moon[hidden] { display: none; }
 .nt-moon-svg { width: 136px; height: 136px; overflow: visible;
-  filter: drop-shadow(0 0 16px rgba(201, 150, 96, 0.35)); }
-.nt-moon-dark { fill: #a26a38; opacity: 0.13; }
-.nt-moon-lit { fill: #d2a56f; }
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--nt-hi) 40%, transparent)); }
+.nt-moon-dark { fill: var(--nt-ink); opacity: 0.13; }
+.nt-moon-lit { fill: var(--nt-hi); }
 .nt-moon-name { font-size: 28px; opacity: 0.85; white-space: nowrap; }
 .nt-moon-when { font-size: 22px; opacity: 0.6; white-space: nowrap; }
 .nt-moon.nt-moon-down { opacity: 0.5; }
@@ -2199,10 +2231,10 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
   pointer-events: none;
 }
 .nt-sun-svg { width: 160px; height: 85px; overflow: visible; }
-.nt-sun-arc { fill: none; stroke: #a26a38; stroke-width: 3; stroke-dasharray: 2 9;
+.nt-sun-arc { fill: none; stroke: var(--nt-ink); stroke-width: 3; stroke-dasharray: 2 9;
   stroke-linecap: round; opacity: 0.55; }
-.nt-sun-hz { stroke: #a26a38; stroke-width: 3; stroke-linecap: round; opacity: 0.6; }
-.nt-sun-disc { fill: #d2a56f; filter: drop-shadow(0 0 10px rgba(201, 150, 96, 0.55)); }
+.nt-sun-hz { stroke: var(--nt-ink); stroke-width: 3; stroke-linecap: round; opacity: 0.6; }
+.nt-sun-disc { fill: var(--nt-hi); filter: drop-shadow(0 0 10px color-mix(in srgb, var(--nt-hi) 60%, transparent)); }
 .nt-sun.nt-sun-down .nt-sun-svg { opacity: 0.55; }
 .nt-sun-times {
   display: grid; grid-template-columns: auto auto; gap: 4px 16px; align-items: baseline;
@@ -2314,7 +2346,7 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
 #nt-overlay.nl-pic .nt-wn { text-shadow: none; }
 #nt-overlay.nl-pic :is(.nt-fh-ico, .nt-sun-svg) { filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.85)); }
 #nt-overlay.nl-pic .nt-moon-svg {
-  filter: drop-shadow(0 0 16px rgba(201, 150, 96, 0.35)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.85));
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--nt-hi) 40%, transparent)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.85));
 }
 /* On black the quiet lines are quiet by being see-through; over a picture
    that only lets the picture through them, so they are a little less so. */
@@ -2423,6 +2455,38 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
   border: 1px solid var(--rule); border-radius: 12px; color: var(--mid); }
 #sc-sheet .sc-upsong > .sl-del { border: 0; border-left: 1px solid var(--rule); border-radius: 0 12px 12px 0; color: var(--food); }
 #sc-sheet .sc-sumlive { display: block; margin-top: 4px; font-weight: 600; color: var(--sheet-accent, var(--house)); }
+
+/* ---- the dehumidifier (dehumidifier.js): a card on House → Automation ----
+   Two columns, beside Babo Alarm (2026-11-13). 👕 Laundry as quiet as the
+   diffuser's 🥂 until lit, 1/2/4 h as its times, Stop in their place while it
+   runs. Running: outlined in the house's green; the tank full: terracotta. */
+.phone-card.au-card.dh-card { grid-column: span 2; }
+.dh-acts { flex: 1 1 auto; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.dh-card .phone-ring.dh-run { min-width: 64px; min-height: 56px; padding: 0 10px; font-size: 24px;
+  display: inline-flex; align-items: baseline; justify-content: center; gap: 3px; }
+.dh-card .phone-ring.dh-run small { font-size: 14px; font-weight: 500; }
+.dh-card .phone-ring.dh-stop { min-width: 96px; min-height: 56px; font-size: 22px; }
+.dh-card .phone-ring.dh-laundry { min-width: 76px; min-height: 56px; padding: 0 8px; font-size: 20px;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--rule);
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1.1; }
+.dh-card .phone-ring.dh-laundry small { font-size: 14px; font-weight: 500; }
+.dh-card .phone-ring.dh-laundry.on { background: var(--photos); border-color: var(--photos); color: var(--bg); }
+.dh-card .phone-ring[hidden] { display: none; }
+.dh-card .phone-ring:disabled { opacity: 0.5; }
+.dh-card .au-pz:not([hidden]) { display: flex; }
+.au-card.dh-going { border-color: var(--house); box-shadow: inset 0 0 0 2px var(--house); }
+.au-card.dh-going .phone-status { color: var(--house); font-weight: 600; }
+.au-card.dh-full { border-color: var(--food); box-shadow: inset 0 0 0 2px var(--food); }
+.au-card.dh-full .phone-status { color: var(--food); font-weight: 600; }
+.au-card.dh-paused { box-shadow: inset 0 0 0 2px var(--photos); }
+#dh-sheet .dh-step .dh-dir { touch-action: none; user-select: none; -webkit-user-select: none; }
+#dh-sheet .dh-step .dh-val { min-width: 150px; }
+#dh-sheet .dh-readings { display: flex; flex-wrap: wrap; gap: 28px; }
+#dh-sheet .dh-readings > span { display: flex; flex-direction: column; gap: 2px; }
+#dh-sheet .dh-readings small { font-size: 15px; color: var(--dim); }
+#dh-sheet .dh-readings b { font-size: 26px; font-weight: 600; color: #7fb6e8; font-variant-numeric: tabular-nums; }
+#dh-sheet .ls-row.dh-run { padding: 10px 0; }
+#dh-sheet .dh-run small { color: var(--dim); margin-left: 6px; }
 
 /* ---- the aroma diffuser (diffuser.js): a card on House → Automation ----
    The whole row (two columns until 2026-10-18, when Alex asked for it "all
@@ -2601,10 +2665,18 @@ html:not(.phone) #p-ha .ha-auto .phone-row { flex: 0 0 auto; }
 .nl-mini {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-size: 46px; font-weight: 500; letter-spacing: -1.5px; font-variant-numeric: tabular-nums;
-  color: #a26a38; text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+  color: var(--nt-ink); text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
 }
-.nl-draw .nl-cres { fill: #d2a56f; opacity: 0.8; }
-.nl-draw .nl-rain line { stroke: #c2854a; stroke-width: 2.4; stroke-linecap: round; opacity: 0.75; }
+.nl-draw .nl-cres { fill: var(--nt-hi); opacity: 0.8; }
+.nl-draw .nl-rain line { stroke: color-mix(in srgb, var(--nt-ink) 55%, var(--nt-hi)); stroke-width: 2.4;
+  stroke-linecap: round; opacity: 0.75; }
+/* The words' colours (night.js INKS): each a sample of the clock in it. */
+#nt-sheet .nt-inks { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+#nt-sheet .nt-inks .ls-btn { min-width: 0; display: inline-flex; align-items: center; gap: 10px; }
+#nt-sheet .nt-ink-s {
+  display: inline-grid; place-items: center; width: 64px; height: 36px; border-radius: 8px; background: #000;
+  font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums;
+}
 .nl-what { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .nl-what b { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 500; color: var(--text); }
 .nl-what b::before {
@@ -6256,6 +6328,8 @@ button[data-vc-chip] { flex: 0 1 auto; }
   vertical-align: -0.12em; color: var(--dim);
 }
 .cl-flower svg { width: 100%; height: 100%; display: block; }
+/* An appliance's own place (the dehumidifier's 💦), before its name. */
+.cl-icon { font-style: normal; }
 .cl-flower[data-lvl="ok"] { color: var(--soil-ok); }
 .cl-flower[data-lvl="dry"] { color: var(--soil-dry); }
 .cl-flower[data-lvl="water"] {
@@ -6302,6 +6376,9 @@ html:not(.phone) #topbar #hd-climate .cl-cell.soil .cl-vals .cl-h {
 .panel.expanded.bleed > header .hx-clim { flex-direction: column; align-items: stretch; gap: 4px; }
 .panel.expanded.bleed > header .hx-cl-cell { flex-direction: row; align-items: baseline; gap: 10px; }
 .panel.expanded.bleed > header .hx-cl-v { margin-left: auto; }
+/* The humidity a fixed width, so the temperatures above one another line up
+   whatever stands beside them: "42%", or "—" from a sensor without one. */
+.panel.expanded.bleed > header .hx-cl-v i { min-width: 2.6em; text-align: left; }
 .hx-cl-cell { display: flex; flex-direction: column; gap: 0; min-width: 0; }
 .hx-cl-name { font-size: 19px; color: var(--dim); white-space: nowrap; }
 .hx-cl-v { display: flex; align-items: baseline; gap: 7px; font-variant-numeric: tabular-nums; }
@@ -6360,19 +6437,38 @@ html:not(.phone) #topbar #hd-climate .cl-cell.soil .cl-vals .cl-h {
 .cl-range.on { background: var(--house); border-color: var(--house); color: var(--bg); }
 #cl-sheet .cl-ranges { gap: 1px; margin-left: 0; }
 #cl-sheet .cl-range:not(.on) { color: var(--text); }
-/* The second row (2026-10-21): the figure's tabs, then a chip per place —
-   its colour, its name and what it says now — that takes its line off the
-   chart or puts it back, then All and None. */
+/* The second row (2026-10-21): a chip per place — its colour, its name and
+   what it says now — that takes its line off the chart or puts it back, then
+   All and None. The figure's tabs were on this row until 2026-11-14 and are
+   a row of their own above it now (.cl-tabs). */
 .cl-bar2 {
   flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px;
   padding: 14px 28px 14px; border-bottom: 1px solid var(--rule-soft);
 }
-.cl-metrics { display: flex; gap: 8px; }
-.cl-metric {
-  min-height: var(--touch); padding: 0 18px; border-radius: var(--radius-sm);
-  border: 1px solid var(--rule); color: var(--mid); font-size: 18px; font-weight: 500;
+/* The figure's tabs (2026-11-14, Alex: "make it visually that those are
+   tabs, they appear almost same as the sensors"): a strip of their own
+   under the header, plain words with no frame, the chosen one lifted and
+   underlined in the house's green and joined to the rule under the strip —
+   nothing like the framed place chips below it, which take a line off the
+   chart rather than change what the chart is. */
+.cl-tabs {
+  flex: 0 0 auto; display: flex; gap: 4px; padding: 6px 28px 0;
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto; scrollbar-width: none;
 }
-.cl-metric.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.cl-tabs::-webkit-scrollbar { display: none; }
+.cl-metric {
+  flex: 0 0 auto; min-height: 58px; padding: 0 26px; margin-bottom: -1px;
+  border: 0; border-bottom: 4px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: none; color: var(--mid); font-size: 19px; font-weight: 500; white-space: nowrap;
+  touch-action: manipulation;
+}
+.cl-metric:not(.on):active { color: var(--text); background: var(--panel-2); }
+.cl-metric.on {
+  color: var(--text); font-weight: 600; border-bottom-color: var(--house);
+  background: rgba(147, 211, 162, 0.14);
+}
 .cl-legend { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .cl-key {
   min-height: var(--touch); padding: 0 14px; display: flex; align-items: center; gap: 10px;
@@ -6437,6 +6533,32 @@ html:not(.phone) #topbar #hd-climate .cl-cell.soil .cl-vals .cl-h {
    touching 31° is a band that tall. Faint on purpose: it is the uncertainty
    behind the line, not a second line. */
 .cl-band { fill: var(--c); opacity: 0.18; stroke: none; }
+/* When the dehumidifier ran (climate.js, 2026-11-13): a pale teal column
+   behind the humidity lines and a firmer strip at the plot's foot. */
+.cl-run { fill: #5fb3b3; opacity: 0.10; stroke: none; }
+.cl-run-foot { fill: #5fb3b3; opacity: 0.75; stroke: none; }
+.cl-run-key { display: inline-block; width: 14px; height: 6px; border-radius: 2px;
+  background: #5fb3b3; vertical-align: middle; }
+/* The chart's Dehumidifier tab (climate.js, 2026-11-14): a row a day, each
+   run a bar in its kind's colour (--c) on the day's known part; before the
+   record began and after now are only a dashed outline, unknown, not off. */
+.cl-dh-row { fill: #ffffff14; stroke: var(--rule-soft); stroke-width: 1; }
+.cl-dh-none { fill: none; stroke: var(--rule-soft); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.7; }
+.cl-dh-run { fill: var(--c); stroke: none; cursor: pointer; }
+.cl-dh-run.now { animation: cl-dh-pulse 2.4s ease-in-out infinite; }
+.cl-dh-run.picked, .cl-dh-bar.picked { stroke: var(--text); stroke-width: 2; }
+@keyframes cl-dh-pulse { 50% { opacity: 0.6; } }
+.cl-dh-day { fill: var(--mid); font-size: 15px; }
+.cl-dh-tot { fill: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; font-family: inherit; }
+.cl-dh-tot.none { fill: var(--dim); }
+.cl-dh-day.small, .cl-dh-tot.small { font-size: 12px; }
+.cl-dh-bar { fill: var(--c); stroke: none; }
+.cl-dh-hit { fill: transparent; cursor: pointer; }
+.cl-dh .cl-scrub { left: auto; right: 16px; top: 44px; }
+.cl-dh-kinds { grid-template-columns: 1fr !important; }
+.cl-dh-kinds dt { display: flex; align-items: center; gap: 8px; }
+.cl-dh-kinds dd small { margin-left: 6px; }
+
 /* The soil chart's two lines: under the red one the flowers need water, under
    the yellow one they are getting dry. Dashed, so they read as rules drawn
    over the chart and never as a third sensor. */
@@ -7440,3 +7562,19 @@ html:not(.phone) .ats-hear-row > .sheet-cap { margin: 0; }
   position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
 }
 .nl-thumb > svg.nl-scape { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* The hour, shown (hourshow.js, 2026-11-12): over everything — the dim
+   clock and any sheet — while the hour sounds; a tap ends it. */
+#hour-show { position: fixed; inset: 0; z-index: 1000; display: none; background: #0b1534; cursor: pointer; }
+#hour-show.on { display: block; }
+#hour-show svg { width: 100%; height: 100%; display: block; font-family: inherit; }
+/* The plain skins (2026-11-13, the tree 2026-11-15): the calm pond (pond.js)
+   or the butterfly tree (tree.js), and the hour painted over it (hourpaint.js). */
+#hour-show.hs-plain { background: #000; }
+#hour-show.hs-plain svg, #hour-show:not(.hs-plain) > :is(.nt-scape, .hs-time, .hs-paint) { display: none; }
+#hour-show > :is(.nt-scape, .hs-paint) { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#hour-show > .hs-time {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 20.5vh; font-weight: 400; font-variant-numeric: tabular-nums; color: #ede3d2;
+  text-shadow: 0 0 22px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.75); pointer-events: none;
+}

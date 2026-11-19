@@ -744,9 +744,9 @@ html.phone .cl-legend { flex-basis: 100%; gap: 6px; }
 html.phone .cl-key { min-height: 44px; padding: 0 10px; gap: 7px; }
 html.phone .cl-key-name { font-size: 15px; }
 html.phone .cl-key-now i { display: none; }
-html.phone .cl-metric { min-height: 44px; padding: 0 12px; font-size: 15px; }
+html.phone .cl-metric { min-height: 46px; padding: 0 14px; font-size: 15px; }
 /* Four tabs since PC temperatures (2026-10-22): two rows, not one cut off. */
-html.phone .cl-metrics { flex-wrap: wrap; }
+html.phone .cl-tabs { padding: 4px 12px 0; }
 html.phone .cl-an { min-height: 44px; }
 /* The chart, then its statistics under it, and the whole sheet the one
    scroller (overflow-y: auto, above). .cl-main used to scroll by itself in

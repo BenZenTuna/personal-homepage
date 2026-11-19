@@ -72,6 +72,18 @@ const diffuser = await load('./diffuser.js').catch((e) => {
   console.error('diffuser.js did not load', e);
   return null;
 });
+/* The dehumidifier in the Storage (2026-11-13): its card on House → Automation,
+   its sheet its own (dehumidifier.js). Same terms as the diffuser. */
+const dehumidifier = await load('./dehumidifier.js').catch((e) => {
+  console.error('dehumidifier.js did not load', e);
+  return null;
+});
+/* The Zigbee switches card on House → Lights 2 (2026-11-14): hold O on a
+   room's switch pauses its ladder, hold I resumes it (zswitch.js). */
+const zswitch = await load('./zswitch.js').catch((e) => {
+  console.error('zswitch.js did not load', e);
+  return null;
+});
 /* The flower alarm's tile document and sheet (soilalarm.js). Like the school
    alert: a sheet that will not load is no reason for a wall that will not. */
 const soilAlarm = await load('./soilalarm.js').catch((e) => {
@@ -692,7 +704,7 @@ function sheetOpen() {
     + '#ch-sheet.open, #db-sheet.open, #light-sheet.open, #alarm-sheet.open, #at-sheet.open, '
     + '#nt-sheet.open, #pb-sheet.open, #sc-sheet.open, #sl-sheet.open, #sb-doc.open, #at-link.open, '
     + '#au-sheet.open, #bb-sheet.open, #dc-sheet.open, #cd-sheet.open, #df-sheet.open, #rf-sheet.open, '
-    + '#vc-sheet.open, #fa-sheet.open, #sn-sheet.open, #pt-sheet.open, #cs-player.open, #bf-sheet.open, '
+    + '#vc-sheet.open, #fa-sheet.open, #sn-sheet.open, #dh-sheet.open, #zs-sheet.open, #pt-sheet.open, #cs-player.open, #bf-sheet.open, '
     // The morning brief's card on the wall, while it is up.
     + '#bf-show.open, #ask-sheet.open, '
     // Economy's notes box while somebody speaks, AI writes, or a note is being typed.
@@ -1204,6 +1216,9 @@ async function boot() {
     /* The hour, for the same reason: its card, Clock sounds, is at the foot
        of House → More, but the clock strikes on whichever view is up. */
     chime,
+    /* The forecast, for the hour show's sky (hourshow.js lights its
+       landscape by today's sunrise and sunset). */
+    weather,
     /* Travels with the context for the same reason the doorbell does: the
        House panel prints a room's temperature on that room's light card, but
        the sensors are not the House panel's — they are the top bar's, and the
@@ -1236,6 +1251,8 @@ async function boot() {
     pctemps,
     disco,
     diffuser,
+    dehumidifier,
+    zswitch,
     /* The flower alarm: its tile after the school alert, its levels, delay
        and sheet its own (soilalarm.js). Null if that failed to load. */
     soil: soilAlarm,
@@ -1326,6 +1343,8 @@ async function boot() {
   try { pctemps?.init(ctx); } catch (e) { console.error('pctemps failed to start', e); }
   try { disco?.init(ctx); } catch (e) { console.error('disco failed to start', e); }
   try { diffuser?.init(ctx); } catch (e) { console.error('diffuser failed to start', e); }
+  try { dehumidifier?.init(ctx); } catch (e) { console.error('dehumidifier failed to start', e); }
+  try { zswitch?.init(ctx); } catch (e) { console.error('zswitch failed to start', e); }
   // Nor this: a video cast from a phone plays over whichever view is up, and
   // what it covers stops under it as it does under the dim clock.
   try {
