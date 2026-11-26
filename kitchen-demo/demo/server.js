@@ -309,6 +309,20 @@
       return json({ ok: true, voice: false, ...r });
     }
 
+    /* The phone box's "Play on the wall now" and Stop (2026-11-26): as the real
+       server does, a ring makes this screen play the recording wall_times
+       times, and a hush stops it. The recorded ring is moved to this
+       evening with everything else, and a page acts only on a ring newer than
+       the last it saw, so each new one comes after the old. */
+    if (mod === 'phonebox' && SNAP.phonebox && (last === 'wall-test' || last === 'stop')) {
+      const pb = SNAP.phonebox;
+      const after = (x) => Math.max(now(), ((x && x.at) || 0) + 1);
+      if (last === 'stop') pb.hush = { at: after(pb.hush) };
+      else pb.ring = { at: after(pb.ring), times: (pb.settings && pb.settings.wall_times) || 1, test: true };
+      publish('phonebox');
+      return json(clone(pb));
+    }
+
     // ---- any settings window ----------------------------------------------
     const { doc } = docOf(mod);
     if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
